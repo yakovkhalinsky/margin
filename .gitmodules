@@ -1,0 +1,4 @@
+[submodule "firmware/upstream/papyrix-reader"]
+	path = firmware/upstream/papyrix-reader
+	url = https://github.com/bigbag/papyrix-reader
+	ignore = dirty

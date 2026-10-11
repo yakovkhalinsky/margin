@@ -1,0 +1,10 @@
+{
+  "name": "MarginChat",
+  "version": "0.1.0",
+  "description": "margin chat model: bounded transcript, streaming deltas, quick replies, line wrapping and e-ink refresh policy. Pure C++17, host-testable.",
+  "license": "MIT",
+  "frameworks": "*",
+  "platforms": "*",
+  "dependencies": { "MarginProtocol": "*" },
+  "build": { "includeDir": "include", "srcDir": "src" }
+}

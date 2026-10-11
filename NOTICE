@@ -1,0 +1,13 @@
+margin
+Copyright (c) 2026 Yakov Khalinsky
+Licensed under the MIT License (see LICENSE). This applies to margin's own code: firmware/lib/Margin*,
+firmware/test, firmware/scripts, firmware/patches, firmware/platformio.margin.ini, android/, docs/.
+
+This repository references, as a git submodule at firmware/upstream/papyrix-reader, PapyriX
+(https://github.com/bigbag/papyrix-reader), MIT, Copyright (c) 2026 Pavel Liashkov, which itself
+contains third-party components under MIT (FreeInk, SdFat) and GPL-3.0-or-later (Group5,
+OrderedDither from bb_epaper, SdFat DigitalIO). Firmware binaries built from this repository include
+GPL-3.0-or-later code and must be distributed under GPL-3.0 terms. See docs/UPSTREAM.md.
+
+Build-time dependencies fetched by PlatformIO: NimBLE-Arduino (Apache-2.0), Arduino-ESP32 /
+ESP-IDF (LGPL-2.1 / Apache-2.0).

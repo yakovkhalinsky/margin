@@ -1,0 +1,12 @@
+{
+  "name": "MarginProtocol",
+  "version": "0.1.0",
+  "description": "margin BLE wire protocol v1: framing, reassembly, TLV and CRC32. Pure C++17, no Arduino dependency, host-testable.",
+  "license": "MIT",
+  "frameworks": "*",
+  "platforms": "*",
+  "build": {
+    "includeDir": "include",
+    "srcDir": "src"
+  }
+}
