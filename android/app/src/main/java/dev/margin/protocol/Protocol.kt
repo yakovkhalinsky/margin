@@ -34,7 +34,9 @@ enum class MsgType(val code: Int) {
     USER_MESSAGE(0x14), CHAT_CANCEL(0x15), CHAT_NEW(0x16),
     PASSAGE_SHARE(0x20),
     FILE_OFFER(0x30), FILE_ACCEPT(0x31), FILE_COMPLETE(0x32), FILE_RESULT(0x33), FILE_ABORT(0x34),
-    SYNC_REQUEST(0x40), SYNC_RECORDS(0x41), SYNC_DONE(0x42), SYNC_ACK(0x43);
+    SYNC_REQUEST(0x40), SYNC_RECORDS(0x41), SYNC_DONE(0x42), SYNC_ACK(0x43),
+    BIBLE_CONTEXT(0x50), BIBLE_NOTE_SYNC_REQ(0x51), BIBLE_NOTE_RECORDS(0x52),
+    BIBLE_NOTE_SYNC_DONE(0x53), BIBLE_NOTE_PUSH(0x54), BIBLE_NOTE_ACK(0x55);
 
     companion object {
         private val byCode = entries.associateBy { it.code }
@@ -62,6 +64,10 @@ object Tag {
     const val VERSION = 0x22; const val FEATURES = 0x23; const val COLUMNS = 0x24; const val ROWS = 0x25
     const val BATTERY = 0x26; const val CHARGING = 0x27; const val SOURCE = 0x28; const val OPTION_INDEX = 0x29
     const val FREE_KB = 0x2A; const val MAX_BODY = 0x2B; const val RESUME_OFFSET = 0x2C
+    // Bible study tags (0x60-0x6F)
+    const val BIBLE_REF = 0x60; const val BIBLE_BOOK_NAME = 0x61; const val BIBLE_CHAPTER = 0x62
+    const val BIBLE_VERSE = 0x63; const val BIBLE_NOTE_TYPE = 0x64; const val BIBLE_HIGHLIGHT_COLOR = 0x65
+    const val BIBLE_NOTE_RECORD = 0x66
 }
 
 object Feature { const val CHAT = 1; const val PASSAGE = 2; const val FILE_PUSH = 4; const val SYNC = 8 }
@@ -73,4 +79,10 @@ enum class InputSource(val code: Int) { KEYBOARD(0), QUICK_REPLY(1), BUTTON(2) }
 enum class PassageIntent(val code: Int) {
     ASK(0), EXPLAIN(1), SUMMARISE_SELECTION(2), SUMMARISE_CHAPTER(3), DEFINE(4), TRANSLATE(5);
     companion object { fun of(code: Int) = entries.firstOrNull { it.code == code } ?: ASK }
+}
+
+enum class BibleNoteType(val code: Int) { HIGHLIGHT(0), NOTE(1) }
+enum class BibleHighlightColor(val code: Int) {
+    YELLOW(0), GREEN(1), BLUE(2), PINK(3);
+    companion object { fun of(code: Int) = entries.firstOrNull { it.code == code } ?: YELLOW }
 }
