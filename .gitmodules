@@ -1,4 +1,5 @@
-[submodule "firmware/upstream/papyrix-reader"]
-	path = firmware/upstream/papyrix-reader
-	url = https://github.com/bigbag/papyrix-reader
+[submodule "firmware/upstream/crosspoint-reader"]
+	path = firmware/upstream/crosspoint-reader
+	url = https://github.com/crosspoint-reader/crosspoint-reader
+	branch = develop
 	ignore = dirty
