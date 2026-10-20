@@ -9,8 +9,10 @@ PapyriX (pinned submodule) + margin's own libraries, built with PlatformIO for t
 |---|---|
 | `lib/MarginProtocol` (framing, reassembly, CTRL, TLV, CRC32, message codecs, file-name checks) | Real code, 22 host tests pass (`make -C firmware/test`, ASan + UBSan) |
 | `lib/MarginChat` (ChatModel, wrapText, RefreshPolicy) | Real code, host-tested |
+| `lib/MarginBible` (reference parsing, book metadata, notes handling) | Real code, 17 host tests pass |
 | `lib/MarginBle` (NimBLE-Arduino 2.5.x GATT server) | Compiles for `margin_x4pro`; **never run on a device** |
 | `lib/MarginApp` (Chat screen as a PapyriX MiniApp) | Compiles; **never run on a device**; many TODO(Mx) |
+| `lib/MarginBibleApp` (Bible reader as a PapyriX MiniApp) | Scaffold; compiles; **never run on a device** |
 | `margin_x4pro` env | **Builds and links** (pioarduino 55.03.37, Arduino-ESP32 3.3.7). Not flashed yet |
 
 Build size vs upstream `x4pro` at the same pin: flash 4,631,370 B vs 4,443,882 B (+187 KB, 70.7 % of

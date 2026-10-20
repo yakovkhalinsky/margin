@@ -19,6 +19,41 @@ vendors CrossPoint-derived pieces (for example its patched SdFat). If PapyriX st
 the fallback base; the margin libraries (`MarginProtocol`, `MarginChat`, `MarginBle`) are written
 to be base-agnostic, and only `MarginApp` and the hook patches are PapyriX-specific.
 
+### CrossPoint Reader Evaluation (2026-10)
+
+Some users report success running CrossPoint Reader on the X4 Pro. An evaluation was done to decide
+whether margin should rebase onto CrossPoint instead of PapyriX:
+
+**CrossPoint advantages:**
+- Reportedly good X4 Pro support for users who have tested it
+- MIT licence throughout (no GPL-3.0 files that complicate binary distribution)
+- Web flasher tooling for easier installation
+- Active community development
+
+**PapyriX advantages:**
+- margin's existing integration (patches, build config, tests) is already working
+- Stable pinned commit with known behaviour
+- Well-documented X4 Pro target (`env:x4pro`) in the build system
+- Panel controller auto-detection already handles UC8179/UC8279/SSD1677 variance
+
+**Decision:** Stay on PapyriX for now. The migration risk outweighs the benefits at this stage:
+- margin's libraries are already base-agnostic by design
+- Only `MarginApp` and the hook patches are PapyriX-specific
+- A full migration would require rewriting the app integration and testing on hardware
+- No blocking issues have been encountered with PapyriX
+
+**Migration plan (if needed later):**
+1. Create `margin-crosspoint` branch for experimentation
+2. Port `MarginApp` to CrossPoint's app model (likely similar to PapyriX's MiniApp)
+3. Adapt BLE service initialization to CrossPoint's startup sequence
+4. Test all features on X4 Pro hardware
+5. If successful, switch the submodule URL in `.gitmodules`
+
+This decision will be revisited if:
+- PapyriX development stalls or breaks X4 Pro support
+- CrossPoint gains features that significantly benefit margin (e.g., better partial refresh)
+- Users report PapyriX-specific issues on their devices
+
 ## Strategy: pinned submodule + small patch series (not a long-lived fork)
 
 ```

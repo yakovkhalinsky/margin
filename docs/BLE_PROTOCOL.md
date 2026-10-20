@@ -93,6 +93,12 @@ payloads (books) go over FILE (§8).
 | 0x41 | SYNC_RECORDS | device → app | a batch of records |
 | 0x42 | SYNC_DONE | device → app | batch finished, highest `seq` included |
 | 0x43 | SYNC_ACK | app → device | app has durably stored records up to `seq` |
+| 0x50 | BIBLE_CONTEXT | device → app | current Bible passage context for study chat |
+| 0x51 | BIBLE_NOTE_SYNC_REQ | app → device | request Bible notes/highlights changed since `seq` |
+| 0x52 | BIBLE_NOTE_RECORDS | device → app | batch of Bible note/highlight records |
+| 0x53 | BIBLE_NOTE_SYNC_DONE | device → app | Bible note sync batch complete |
+| 0x54 | BIBLE_NOTE_PUSH | app → device | Bible notes edited on phone |
+| 0x55 | BIBLE_NOTE_ACK | device → app | acknowledges pushed Bible notes |
 
 ## 5. Reassembly rules (receiver)
 
@@ -166,7 +172,13 @@ the wrong length makes the message malformed. Tags are global:
 | 0x13 | CRC32 | u32 (CRC-32/ISO-HDLC, as zlib) | | 0x2A | FREE_KB | u32 |
 | 0x14 | FORMAT | utf8: epub, fb2, md, txt, html | | 0x2B | MAX_BODY | u32 |
 | 0x15 | RESULT | u8: 0 ok, 1 rejected, 2 no space, 3 CRC mismatch, 4 I/O error, 5 aborted, 6 bad name | | 0x2C | RESUME_OFFSET | u32 |
-| 0x16 | PATH | utf8 | | | | |
+| 0x16 | PATH | utf8 | | 0x60 | BIBLE_REF | utf8, OSIS reference (e.g. "JHN.3.16") |
+| | | | | 0x61 | BIBLE_BOOK_NAME | utf8, full book name (e.g. "John") |
+| | | | | 0x62 | BIBLE_CHAPTER | u16, 1-based chapter number |
+| | | | | 0x63 | BIBLE_VERSE | u16, 1-based verse number |
+| | | | | 0x64 | BIBLE_NOTE_TYPE | u8: 0 highlight, 1 note |
+| | | | | 0x65 | BIBLE_HIGHLIGHT_COLOR | u8: 0 yellow, 1 green, 2 blue, 3 pink |
+| | | | | 0x66 | BIBLE_NOTE_RECORD | nested TLV, repeatable |
 
 Required (R) and optional (O) tags per message:
 
@@ -191,6 +203,12 @@ Required (R) and optional (O) tags per message:
 | FILE_ABORT | TRANSFER_ID R, ERROR_CODE O |
 | SYNC_REQUEST | SEQ R (0 = everything) |
 | SYNC_RECORDS | RECORD ×n, each: RECORD_ID R, RECORD_KIND R, SEQ R, BOOK_ID R, BOOK_TITLE O, SPINE O, OFFSET O, PERCENT O, TEXT O (highlight excerpt), NOTE O, TIMESTAMP R, DELETED O |
+| BIBLE_CONTEXT | BIBLE_REF R, BIBLE_BOOK_NAME O, BIBLE_CHAPTER R, BIBLE_VERSE O, TEXT R (verse text) |
+| BIBLE_NOTE_SYNC_REQ | SEQ R (0 = everything) |
+| BIBLE_NOTE_RECORDS | BIBLE_NOTE_RECORD ×n, each: BIBLE_REF R, BIBLE_NOTE_TYPE R, BIBLE_HIGHLIGHT_COLOR O, NOTE O (text), TIMESTAMP R, SEQ R, DELETED O |
+| BIBLE_NOTE_SYNC_DONE | SEQ R (highest included) |
+| BIBLE_NOTE_PUSH | BIBLE_NOTE_RECORD ×n (notes edited on phone) |
+| BIBLE_NOTE_ACK | SEQ R (highest acknowledged) |
 | SYNC_DONE | SEQ R |
 | SYNC_ACK | SEQ R |
 

@@ -63,9 +63,39 @@ Each milestone ends with something you can try on the device. ✅ done · 🟡 s
 - SYNC_REQUEST/RECORDS/DONE/ACK; phone-side store with export (Markdown / Readwise-style CSV).
 - Later: two-way sync (notes edited on the phone).
 
+## M8: Bible Study Mode (Phase 1+2) 🟡
+
+- 🟡 Bible data format: index.json + per-book .txt files on SD (`/margin/bible/`)
+- 🟡 BSB converter: Python tool to download/convert Berean Standard Bible from eBible.org
+- 🟡 Reference parser: "John 3:16" → book/chapter/verse, OSIS format support
+- 🟡 Book metadata: 66 books with OSIS IDs, names, abbreviations, chapter counts
+- 🟡 Notes format: JSONL keyed by OSIS reference for highlights and notes
+- 🟡 BLE protocol: BIBLE_CONTEXT and note sync messages (0x50-0x55)
+- 🟡 Android stubs: BibleNotesViewModel, BibleStudyChat prompt building
+- ⬜ MarginBibleApp: book/chapter/verse navigation with buttons
+- ⬜ Highlight rendering in verse display
+- ⬜ Note viewing/editing on device
+
+## M9: Bible Study Mode (Phase 3+4) ⬜
+
+- Treasury of Scripture Knowledge cross-references (TSK is public domain)
+- Side-panel showing related verses, tap to jump
+- "Ask about this verse" → BIBLE_CONTEXT → chat flow
+- System prompt includes passage context
+- LLM answers rendered in Chat screen
+
+## M10: Daily Reading Plan ⬜
+
+- Reading plan format (JSON schedule, canonical plans like M'Cheyne)
+- Home screen widget showing today's reading
+- Progress tracking synced to phone
+- Optional notifications/reminders
+
 ## Later / ideas
 
 - Upstream generic hooks to PapyriX (e.g. an app-registration extension point) to shrink margin's patch set.
 - CI: GitHub Actions running `make -C firmware/test`, the Kotlin protocol tests and a `pio run -e margin_x4pro` build.
 - OTA updates pushed from the phone over BLE (PapyriX already has an OTA partition layout).
 - iOS client (the protocol is platform-neutral).
+- Bible translations: support for multiple translations with switchable display
+- Audio Bible integration: BLE streaming from phone to device speaker

@@ -1,0 +1,12 @@
+{
+    "name": "MarginBibleApp",
+    "version": "0.1.0",
+    "description": "Bible reader MiniApp for margin on PapyriX",
+    "keywords": "bible, reader, eink, papyrix",
+    "license": "MIT",
+    "dependencies": {
+        "MarginBible": "*"
+    },
+    "frameworks": "arduino",
+    "platforms": "espressif32"
+}

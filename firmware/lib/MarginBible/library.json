@@ -1,0 +1,9 @@
+{
+    "name": "MarginBible",
+    "version": "0.1.0",
+    "description": "Bible reference parsing, book metadata, and notes handling for margin",
+    "keywords": "bible, reference, osis, parsing",
+    "license": "MIT",
+    "frameworks": "*",
+    "platforms": "*"
+}
