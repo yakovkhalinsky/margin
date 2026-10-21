@@ -133,7 +133,7 @@ class CompanionService : Service() {
 
         disconnect()
 
-        bleClient = MarginBleClient(this).also { client ->
+        bleClient = MarginBleClient.getInstance(this).also { client ->
             client.connect(device)
 
             scope.launch {

@@ -34,7 +34,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
-import dev.margin.protocol.Protocol
+import dev.margin.ble.MarginBleClient
+import dev.margin.protocol.NotifPush
+import dev.margin.protocol.encodeNotifPush
 
 class CompanionSettingsActivity : ComponentActivity() {
     private lateinit var deviceAssociationLauncher: ActivityResultLauncher<IntentSenderRequest>
@@ -77,10 +79,37 @@ class CompanionSettingsActivity : ComponentActivity() {
                     onPairDevice = { startDeviceAssociation() },
                     onRequestPermissions = { requestPermissions() },
                     onStartService = { CompanionService.start(this) },
-                    onStopService = { CompanionService.stop(this) }
+                    onStopService = { CompanionService.stop(this) },
+                    onSendTestNotification = { sendTestNotification() }
                 )
             }
         }
+    }
+
+    private fun sendTestNotification() {
+        val bleClient = MarginBleClient.getInstance(this)
+        if (!bleClient.isConnected()) {
+            Toast.makeText(this, "Not connected to device", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val timestamp = System.currentTimeMillis()
+        val notif = NotifPush(
+            notifId = (timestamp % 100000).toInt(),
+            notifKey = "dev.margin.companion|test_$timestamp",
+            appPkg = "dev.margin.companion",
+            appName = "margin Companion",
+            title = "Test Notification",
+            body = "This is a test notification sent at ${java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date(timestamp))}",
+            timestampMs = timestamp,
+            category = "test",
+            priority = 2
+        )
+
+        val frame = encodeNotifPush(notif)
+        bleClient.sendFrame(frame)
+        Toast.makeText(this, "Test notification sent", Toast.LENGTH_SHORT).show()
+        Log.d(TAG, "Sent test notification: id=${notif.notifId}")
     }
 
     private fun requestPermissions() {
@@ -167,7 +196,8 @@ fun CompanionSettingsScreen(
     onPairDevice: () -> Unit,
     onRequestPermissions: () -> Unit,
     onStartService: () -> Unit,
-    onStopService: () -> Unit
+    onStopService: () -> Unit,
+    onSendTestNotification: () -> Unit
 ) {
     val context = LocalContext.current
 
@@ -349,6 +379,37 @@ fun CompanionSettingsScreen(
                     ) {
                         Text("Configure App Filter")
                         Text("→", style = MaterialTheme.typography.titleMedium)
+                    }
+                }
+            }
+
+            item {
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    "Testing",
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.padding(vertical = 8.dp)
+                )
+                Text(
+                    "Send a test notification to verify the connection",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            item {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Button(
+                            onClick = onSendTestNotification,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Send Test Notification")
+                        }
                     }
                 }
             }

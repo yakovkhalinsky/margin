@@ -89,6 +89,95 @@ if ! grep -q "MARGIN_ENABLE_BIBLE" "$HOME_CPP" 2>/dev/null; then
     echo "   Added Bible to HomeActivity menu"
 fi
 
+# Copy companion Activities into CrossPoint's src tree
+echo "   Copying companion Activities..."
+if [ -d "$FW/lib/MarginNotificationsActivity" ]; then
+    cp "$FW/lib/MarginNotificationsActivity/src"/* "$UP/src/margin/"
+fi
+if [ -d "$FW/lib/MarginMessagesActivity" ]; then
+    cp "$FW/lib/MarginMessagesActivity/src"/* "$UP/src/margin/"
+fi
+if [ -d "$FW/lib/MarginCalendarActivity" ]; then
+    cp "$FW/lib/MarginCalendarActivity/src"/* "$UP/src/margin/"
+fi
+
+# Add companion Activity includes to ActivityManager.cpp
+if ! grep -q "MARGIN_BLE" "$AM_CPP" 2>/dev/null; then
+    sed -i '/#ifdef MARGIN_ENABLE_BIBLE/i\
+#ifdef MARGIN_BLE\
+#include "margin/NotificationsActivity.h"\
+#include "margin/MessagesActivity.h"\
+#include "margin/CalendarActivity.h"\
+#endif\
+' "$AM_CPP"
+    echo "   Added companion Activity includes to ActivityManager.cpp"
+fi
+
+# Add companion goToXxx() methods to ActivityManager.cpp
+if ! grep -q "goToNotifications" "$AM_CPP" 2>/dev/null; then
+    sed -i '/#ifdef MARGIN_ENABLE_BIBLE/i\
+#ifdef MARGIN_BLE\
+void ActivityManager::goToNotifications() {\
+  replaceActivity(std::make_unique<margin::NotificationsActivity>(renderer, mappedInput));\
+}\
+void ActivityManager::goToMessages() {\
+  replaceActivity(std::make_unique<margin::MessagesActivity>(renderer, mappedInput));\
+}\
+void ActivityManager::goToCalendar() {\
+  replaceActivity(std::make_unique<margin::CalendarActivity>(renderer, mappedInput));\
+}\
+#endif\
+' "$AM_CPP"
+    echo "   Added companion goToXxx() methods to ActivityManager.cpp"
+fi
+
+# Add companion method declarations to ActivityManager.h
+if ! grep -q "goToNotifications" "$AM_H" 2>/dev/null; then
+    sed -i '/#ifdef MARGIN_ENABLE_BIBLE/i\
+#ifdef MARGIN_BLE\
+  void goToNotifications();\
+  void goToMessages();\
+  void goToCalendar();\
+#endif\
+' "$AM_H"
+    echo "   Added companion method declarations to ActivityManager.h"
+fi
+
+# Add companion items to Home menu in HomeActivity.cpp
+if ! grep -q "MARGIN_BLE" "$HOME_CPP" 2>/dev/null; then
+    sed -i '/#ifdef MARGIN_ENABLE_BIBLE/i\
+#ifdef MARGIN_BLE\
+  menuItems.insert(menuItems.begin() + 2, "Calendar");\
+  menuIcons.insert(menuIcons.begin() + 2, Calendar);\
+  menuItems.insert(menuItems.begin() + 2, "Messages");\
+  menuIcons.insert(menuIcons.begin() + 2, Message);\
+  menuItems.insert(menuItems.begin() + 2, "Notifications");\
+  menuIcons.insert(menuIcons.begin() + 2, Bell);\
+#endif\
+' "$HOME_CPP"
+    echo "   Added companion items to HomeActivity menu"
+fi
+
+# Link companion libraries
+echo "   Linking companion libraries..."
+for lib in MarginCompanion MarginBle MarginProtocol; do
+    if [ -d "$FW/lib/$lib" ]; then
+        rm -rf "$UP/lib/$lib" 2>/dev/null
+        mkdir -p "$UP/lib/$lib"
+        if [ -d "$FW/lib/$lib/include" ]; then
+            ln -snf "$FW/lib/$lib/include" "$UP/lib/$lib/include" 2>/dev/null || \
+                cp -r "$FW/lib/$lib/include" "$UP/lib/$lib/"
+        fi
+        if [ -d "$FW/lib/$lib/src" ]; then
+            ln -snf "$FW/lib/$lib/src" "$UP/lib/$lib/src" 2>/dev/null || \
+                cp -r "$FW/lib/$lib/src" "$UP/lib/$lib/"
+        fi
+        if [ -f "$FW/lib/$lib/library.json" ]; then
+            cp "$FW/lib/$lib/library.json" "$UP/lib/$lib/"
+        fi
+    fi
+done
+
 # Link the margin config
 echo "6. Linking platformio.margin.ini..."
 ln -sf "$FW/platformio.margin.ini" "$UP/platformio.local.ini"
