@@ -1,16 +1,6 @@
 {
-  "name": "margin",
-  "version": "0.1.0",
-  "new_install_prompt_erase": true,
-  "builds": [
-    {
-      "chipFamily": "ESP32-S3",
-      "parts": [
-        {
-          "path": "https://github.com/yakovkhalinsky/margin/releases/latest/download/margin-x4pro-merged.bin",
-          "offset": 0
-        }
-      ]
-    }
-  ]
+  "name": "margin - DISABLED",
+  "version": "0.1.0-BOOTLOOP",
+  "new_install_prompt_erase": false,
+  "builds": []
 }

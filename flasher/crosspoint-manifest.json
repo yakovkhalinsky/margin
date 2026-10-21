@@ -1,14 +1,14 @@
 {
-  "name": "CrossPoint Reader",
+  "name": "CrossPoint Reader (Full Restore)",
   "version": "latest",
-  "new_install_prompt_erase": false,
+  "new_install_prompt_erase": true,
   "builds": [
     {
       "chipFamily": "ESP32-S3",
       "parts": [
         {
-          "path": "https://github.com/crosspoint-reader/crosspoint-reader/releases/latest/download/firmware-x4pro.bin",
-          "offset": 65536
+          "path": "firmware/crosspoint-x4pro-full.bin",
+          "offset": 0
         }
       ]
     }
