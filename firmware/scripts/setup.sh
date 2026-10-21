@@ -144,14 +144,15 @@ if ! grep -q "goToCompanionNotifications" "$AM_H" 2>/dev/null; then
 fi
 
 # Add companion items to Home menu in HomeActivity.cpp
+# Using available icons: Blocks for calendar, Text for messages, Recent for notifications
 if ! grep -q "MARGIN_BLE" "$HOME_CPP" 2>/dev/null; then
     sed -i '0,/#ifdef MARGIN_ENABLE_BIBLE/{s/#ifdef MARGIN_ENABLE_BIBLE/#ifdef MARGIN_BLE\
   menuItems.insert(menuItems.begin() + 2, "Calendar");\
-  menuIcons.insert(menuIcons.begin() + 2, Calendar);\
+  menuIcons.insert(menuIcons.begin() + 2, Blocks);\
   menuItems.insert(menuItems.begin() + 2, "Messages");\
-  menuIcons.insert(menuIcons.begin() + 2, Message);\
+  menuIcons.insert(menuIcons.begin() + 2, Text);\
   menuItems.insert(menuItems.begin() + 2, "Notifications");\
-  menuIcons.insert(menuIcons.begin() + 2, Bell);\
+  menuIcons.insert(menuIcons.begin() + 2, Recent);\
 #endif\
 \
 #ifdef MARGIN_ENABLE_BIBLE/}' "$HOME_CPP"
