@@ -114,16 +114,16 @@ if ! grep -q "MARGIN_BLE" "$AM_CPP" 2>/dev/null; then
 fi
 
 # Add companion goToXxx() methods to ActivityManager.cpp
-if ! grep -q "goToNotifications" "$AM_CPP" 2>/dev/null; then
+if ! grep -q "goToCompanionNotifications" "$AM_CPP" 2>/dev/null; then
     sed -i '/#ifdef MARGIN_ENABLE_BIBLE/i\
 #ifdef MARGIN_BLE\
-void ActivityManager::goToNotifications() {\
+void ActivityManager::goToCompanionNotifications() {\
   replaceActivity(std::make_unique<margin::NotificationsActivity>(renderer, mappedInput));\
 }\
-void ActivityManager::goToMessages() {\
+void ActivityManager::goToCompanionMessages() {\
   replaceActivity(std::make_unique<margin::MessagesActivity>(renderer, mappedInput));\
 }\
-void ActivityManager::goToCalendar() {\
+void ActivityManager::goToCompanionCalendar() {\
   replaceActivity(std::make_unique<margin::CalendarActivity>(renderer, mappedInput));\
 }\
 #endif\
@@ -132,12 +132,12 @@ void ActivityManager::goToCalendar() {\
 fi
 
 # Add companion method declarations to ActivityManager.h
-if ! grep -q "goToNotifications" "$AM_H" 2>/dev/null; then
+if ! grep -q "goToCompanionNotifications" "$AM_H" 2>/dev/null; then
     sed -i '/#ifdef MARGIN_ENABLE_BIBLE/i\
 #ifdef MARGIN_BLE\
-  void goToNotifications();\
-  void goToMessages();\
-  void goToCalendar();\
+  void goToCompanionNotifications();\
+  void goToCompanionMessages();\
+  void goToCompanionCalendar();\
 #endif\
 ' "$AM_H"
     echo "   Added companion method declarations to ActivityManager.h"
