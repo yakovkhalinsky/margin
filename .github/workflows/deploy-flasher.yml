@@ -1,0 +1,148 @@
+name: Deploy Static Flasher
+
+# This workflow deploys the static flasher to GitHub Pages WITHOUT requiring
+# a successful margin firmware build. It builds stock CrossPoint x4pro for
+# the restore functionality, ensuring the live site always has:
+#   - margin install DISABLED
+#   - CrossPoint restore working with separate parts
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "github-pages"
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Verify margin install is disabled
+        run: |
+          echo "=== Checking manifest.json ==="
+          cat flasher/manifest.json
+          
+          # Verify manifest has empty builds or is disabled
+          if grep -q '"builds": \[\]' flasher/manifest.json; then
+            echo "✓ manifest.json has empty builds array (margin disabled)"
+          elif grep -q 'DISABLED' flasher/manifest.json; then
+            echo "✓ manifest.json is marked as DISABLED"
+          else
+            echo "ERROR: manifest.json may allow margin install!"
+            echo "Contents:"
+            cat flasher/manifest.json
+            exit 1
+          fi
+          
+          # Double-check no dangerous offset 0 with erase
+          if grep -q '"offset": 0' flasher/manifest.json && grep -q '"new_install_prompt_erase": true' flasher/manifest.json; then
+            echo "ERROR: manifest.json has offset 0 with erase enabled!"
+            exit 1
+          fi
+          
+          echo ""
+          echo "=== Checking index.html ==="
+          if grep -q 'pointer-events: none\|disabled\|DISABLED' flasher/index.html; then
+            echo "✓ index.html has margin install disabled"
+          else
+            echo "WARNING: Could not verify margin install is disabled in index.html"
+          fi
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install PlatformIO
+        run: pip install platformio
+
+      - name: Build stock CrossPoint x4pro (for restore)
+        run: |
+          # Build stock CrossPoint x4pro - this does NOT require margin setup
+          # and provides bootloader, partitions, and app for full restore
+          cd firmware/upstream/crosspoint-reader
+          pio run -e x4pro
+          
+          echo "=== Build output ==="
+          ls -la .pio/build/x4pro/
+
+      - name: Prepare flasher site
+        run: |
+          mkdir -p dist/flasher/firmware
+          
+          BUILD_DIR="firmware/upstream/crosspoint-reader/.pio/build/x4pro"
+          
+          # Copy static flasher files (margin disabled)
+          cp flasher/index.html dist/flasher/
+          cp flasher/manifest.json dist/flasher/
+          
+          # Copy stock CrossPoint parts for full restore
+          cp "$BUILD_DIR/bootloader.bin" dist/flasher/firmware/
+          cp "$BUILD_DIR/partitions.bin" dist/flasher/firmware/
+          cp "$BUILD_DIR/firmware.bin" dist/flasher/firmware/crosspoint-x4pro-app.bin
+          
+          # Find and copy boot_app0.bin
+          BOOT_APP0=$(find ~/.platformio/packages/framework-arduinoespressif32 -name "boot_app0.bin" -path "*/partitions/*" | head -1)
+          if [ -n "$BOOT_APP0" ]; then
+            cp "$BOOT_APP0" dist/flasher/firmware/boot_app0.bin
+          else
+            echo "ERROR: boot_app0.bin not found"
+            exit 1
+          fi
+          
+          # Generate CrossPoint restore manifest with SEPARATE PARTS
+          cat > dist/flasher/crosspoint-manifest.json << 'EOF'
+{
+  "name": "CrossPoint Reader (Full Restore)",
+  "version": "latest",
+  "new_install_prompt_erase": false,
+  "builds": [
+    {
+      "chipFamily": "ESP32-S3",
+      "parts": [
+        {"path": "firmware/bootloader.bin", "offset": 0},
+        {"path": "firmware/partitions.bin", "offset": 32768},
+        {"path": "firmware/boot_app0.bin", "offset": 57344},
+        {"path": "firmware/crosspoint-x4pro-app.bin", "offset": 65536}
+      ]
+    }
+  ]
+}
+EOF
+          
+          echo "=== Flasher site contents ==="
+          find dist/flasher -type f -exec ls -la {} \;
+          
+          echo ""
+          echo "=== manifest.json (margin DISABLED) ==="
+          cat dist/flasher/manifest.json
+          
+          echo ""
+          echo "=== crosspoint-manifest.json (separate parts) ==="
+          cat dist/flasher/crosspoint-manifest.json
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload to Pages
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist/flasher/
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
