@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build-firmware:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install PlatformIO
+        run: pip install platformio
+
+      - name: Setup firmware environment
+        run: |
+          cd firmware
+          ./scripts/setup.sh
+
+      - name: Build margin firmware (X4 Pro)
+        run: |
+          cd firmware/upstream/crosspoint-reader
+          pio run -e margin_x4pro
+
+      - name: Run host tests
+        run: |
+          make -C firmware/test
+
+      - name: Upload firmware artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: margin-x4pro-firmware
+          path: firmware/upstream/crosspoint-reader/.pio/build/margin_x4pro/firmware.bin
+          retention-days: 7
+
+  test-python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Run BSB converter tests
+        run: python tools/test_bsb_converter.py

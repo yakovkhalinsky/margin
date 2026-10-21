@@ -31,25 +31,46 @@ make -C firmware/test
 
 > **Back up your device first!** See [HARDWARE.md](../docs/HARDWARE.md#flashing-and-recovery).
 
-### Option 1: Command line (recommended)
+### Option 1: Web Flasher (recommended)
+
+Visit **[yakovkhalinsky.github.io/margin/](https://yakovkhalinsky.github.io/margin/)** to flash
+directly from your browser using Chrome or Edge on desktop.
+
+### Option 2: Command line
 
 ```bash
 # Connect pogo-pin dongle, device powered on
+# Using merged binary (includes bootloader):
+esptool.py --chip esp32s3 --port /dev/ttyACM0 --baud 921600 \
+    write_flash 0x0 margin-x4pro-merged.bin
+
+# Or app-only (if bootloader already present):
 esptool.py --chip esp32s3 --port /dev/ttyACM0 --baud 921600 \
     write_flash 0x10000 .pio/build/margin_x4pro/firmware.bin
 ```
 
-### Option 2: CrossPoint web flasher
-
-1. Build the firmware: `pio run -e margin_x4pro`
-2. Go to https://crosspointreader.com/#flash-tools
-3. Select "X4 Pro" and "Custom .bin"
-4. Upload `.pio/build/margin_x4pro/firmware.bin`
-
 ### Reverting to stock CrossPoint
 
-Use the same web flasher at https://crosspointreader.com/#flash-tools and select an official
-CrossPoint release instead of "Custom .bin".
+1. **Web Flasher**: Visit [yakovkhalinsky.github.io/margin/](https://yakovkhalinsky.github.io/margin/)
+   and click "Restore stock CrossPoint"
+2. **CrossPoint's web flasher**: Go to [crosspointreader.com/#flash-tools](https://crosspointreader.com/#flash-tools)
+3. **Command line**: Download from [CrossPoint releases](https://github.com/crosspoint-reader/crosspoint-reader/releases)
+   and flash: `esptool.py write_flash 0x10000 crosspoint-*-x4pro.bin`
+
+## Flash Layout (ESP32-S3, 16 MB)
+
+| Component | Offset | Size | Notes |
+|-----------|--------|------|-------|
+| Bootloader | 0x0 | ~24 KB | ESP32-S3 second-stage bootloader |
+| Partition Table | 0x8000 | 3 KB | Defines flash layout |
+| OTA Data | 0xe000 | 8 KB | Boot partition selector |
+| App (app0) | 0x10000 | 6.25 MB | Main application slot |
+| App (app1) | 0x650000 | 6.25 MB | OTA update slot |
+| SPIFFS | 0xc90000 | 3.4 MB | Internal filesystem |
+| Coredump | 0xff0000 | 64 KB | Crash dump storage |
+
+Offsets verified against [CrossPoint's partitions.csv](https://github.com/crosspoint-reader/crosspoint-reader/blob/develop/partitions.csv)
+and [ESP-IDF partition documentation](https://docs.espressif.com/projects/esp-idf/en/latest/esp32s3/api-guides/partition-tables.html).
 
 ## Layout
 
