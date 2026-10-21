@@ -29,7 +29,8 @@ jobs:
           ./scripts/setup.sh
           
           # Convert symlink to file for CI compatibility
-          UP="firmware/upstream/crosspoint-reader"
+          # (setup.sh creates a symlink that may not work in CI)
+          UP="upstream/crosspoint-reader"
           if [ -L "$UP/platformio.local.ini" ]; then
             TARGET=$(readlink -f "$UP/platformio.local.ini" 2>/dev/null || readlink "$UP/platformio.local.ini")
             if [ -f "$TARGET" ]; then
@@ -37,7 +38,8 @@ jobs:
               cp "$TARGET" "$UP/platformio.local.ini"
             fi
           elif [ ! -f "$UP/platformio.local.ini" ]; then
-            cp "firmware/platformio.margin.ini" "$UP/platformio.local.ini"
+            # Fallback: copy the file directly
+            cp "platformio.margin.ini" "$UP/platformio.local.ini"
           fi
 
       - name: Build margin firmware (X4 Pro)

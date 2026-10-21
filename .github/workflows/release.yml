@@ -57,7 +57,7 @@ jobs:
           
           # Verify setup completed correctly
           echo "=== Verifying setup ==="
-          UP="firmware/upstream/crosspoint-reader"
+          UP="upstream/crosspoint-reader"
           
           if [ -L "$UP/platformio.local.ini" ]; then
             echo "platformio.local.ini is a symlink"
@@ -76,7 +76,7 @@ jobs:
           else
             echo "ERROR: platformio.local.ini not created!"
             echo "Manually copying platformio.margin.ini..."
-            cp "firmware/platformio.margin.ini" "$UP/platformio.local.ini"
+            cp "platformio.margin.ini" "$UP/platformio.local.ini"
           fi
           
           echo ""
