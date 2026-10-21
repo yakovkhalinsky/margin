@@ -1,6 +1,6 @@
 {
-  "name": "margin - DISABLED",
-  "version": "0.1.0-BOOTLOOP",
+  "name": "margin - DISABLED (v0.1.0 bootloop investigation)",
+  "version": "0.1.0-DISABLED",
   "new_install_prompt_erase": false,
   "builds": []
 }

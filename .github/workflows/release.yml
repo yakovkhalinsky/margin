@@ -84,13 +84,20 @@ jobs:
           test -f "$MARGIN_DIR/partitions.bin" || { echo "ERROR: margin partitions.bin not found"; exit 1; }
           test -f "$MARGIN_DIR/firmware.bin" || { echo "ERROR: margin firmware.bin not found"; exit 1; }
           
-          # Verify stock x4pro has factory.bin (PlatformIO creates this automatically)
-          test -f "$STOCK_DIR/firmware.factory.bin" || { echo "ERROR: stock factory.bin not found"; exit 1; }
+          # Verify stock x4pro files (separate parts for safer flashing)
+          test -f "$STOCK_DIR/bootloader.bin" || { echo "ERROR: stock bootloader.bin not found"; exit 1; }
+          test -f "$STOCK_DIR/partitions.bin" || { echo "ERROR: stock partitions.bin not found"; exit 1; }
+          test -f "$STOCK_DIR/firmware.bin" || { echo "ERROR: stock firmware.bin not found"; exit 1; }
           
           # Find boot_app0.bin
           BOOT_APP0=$(find ~/.platformio/packages/framework-arduinoespressif32 -name "boot_app0.bin" -path "*/partitions/*" | head -1)
           echo "boot_app0=$BOOT_APP0" >> "$GITHUB_OUTPUT"
           echo "Boot app0: $BOOT_APP0"
+          
+          if [ -z "$BOOT_APP0" ]; then
+            echo "ERROR: boot_app0.bin not found in PlatformIO packages"
+            exit 1
+          fi
 
       - name: Compare flash settings with official CrossPoint
         run: |
@@ -130,7 +137,7 @@ jobs:
           echo "Official CrossPoint: mode=$OFFICIAL_MODE freq=$OFFICIAL_FREQ size=$OFFICIAL_SIZE"
           echo "margin firmware:     mode=$MARGIN_MODE freq=$MARGIN_FREQ size=$MARGIN_SIZE"
           
-          # Check for mismatches
+          # Check for mismatches (warning only, don't fail)
           MISMATCH=0
           if [ "$OFFICIAL_MODE" != "$MARGIN_MODE" ]; then
             echo "WARNING: Flash mode mismatch! Official=$OFFICIAL_MODE, margin=$MARGIN_MODE"
@@ -149,45 +156,50 @@ jobs:
             echo "✓ All flash settings match official CrossPoint"
           fi
 
-      - name: Create merged firmware binaries
+      - name: Prepare distribution files
         env:
           BOOT_APP0: ${{ steps.artifacts.outputs.boot_app0 }}
         run: |
-          mkdir -p dist
+          mkdir -p dist/firmware
           
           MARGIN_DIR="firmware/upstream/crosspoint-reader/.pio/build/margin_x4pro_release"
           STOCK_DIR="firmware/upstream/crosspoint-reader/.pio/build/x4pro"
           
-          # margin merged binary (DISABLED - causes bootloop)
-          # esptool --chip esp32s3 merge-bin ...
+          # Copy stock CrossPoint separate parts for safe restore
+          # Using separate parts avoids the ESP32-S3 native USB write failure
+          # that can occur with large merged binaries
+          cp "$STOCK_DIR/bootloader.bin" "dist/firmware/bootloader.bin"
+          cp "$STOCK_DIR/partitions.bin" "dist/firmware/partitions.bin"
+          cp "$BOOT_APP0" "dist/firmware/boot_app0.bin"
+          cp "$STOCK_DIR/firmware.bin" "dist/firmware/crosspoint-x4pro-app.bin"
           
-          # Copy the stock x4pro factory.bin for CrossPoint restore
-          # This is created by PlatformIO with correct offsets
-          cp "$STOCK_DIR/firmware.factory.bin" "dist/crosspoint-x4pro-full.bin"
-          
-          # Also keep app-only binaries
+          # margin app-only (for debugging - margin install is DISABLED)
           cp "$MARGIN_DIR/firmware.bin" "dist/margin-x4pro-app.bin"
           
-          echo "Created binaries:"
+          echo "=== Distribution files ==="
           ls -la dist/
+          ls -la dist/firmware/
 
-      - name: Prepare flasher site (margin DISABLED)
+      - name: Prepare flasher site (margin DISABLED, CrossPoint uses separate parts)
         env:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
           mkdir -p dist/flasher/firmware
           
-          # Copy CrossPoint full restore image
-          cp dist/crosspoint-x4pro-full.bin dist/flasher/firmware/
+          # Copy separate CrossPoint parts for web flasher
+          cp dist/firmware/bootloader.bin dist/flasher/firmware/
+          cp dist/firmware/partitions.bin dist/flasher/firmware/
+          cp dist/firmware/boot_app0.bin dist/flasher/firmware/
+          cp dist/firmware/crosspoint-x4pro-app.bin dist/flasher/firmware/
           
-          # Copy static flasher files (with margin disabled)
+          # Copy static flasher files
           cp flasher/index.html dist/flasher/
           
           # Generate DISABLED margin manifest
           python3 -c "
           import json
           manifest = {
-              'name': 'margin - DISABLED (v0.1.0 bootloops)',
+              'name': 'margin - DISABLED (v0.1.0 bootloop investigation)',
               'version': '$VERSION-DISABLED',
               'new_install_prompt_erase': False,
               'builds': []
@@ -196,27 +208,35 @@ jobs:
               json.dump(manifest, f, indent=2)
           "
           
-          # Generate CrossPoint FULL restore manifest
+          # Generate CrossPoint restore manifest with SEPARATE PARTS
+          # This avoids the ESP32-S3 native USB issue where merged binary writes
+          # to early offsets (bootloader/partitions) can fail mid-write
           python3 -c "
           import json
           manifest = {
               'name': 'CrossPoint Reader (Full Restore)',
               'version': 'latest',
-              'new_install_prompt_erase': True,
+              'new_install_prompt_erase': False,
               'builds': [{
                   'chipFamily': 'ESP32-S3',
-                  'parts': [{
-                      'path': 'firmware/crosspoint-x4pro-full.bin',
-                      'offset': 0
-                  }]
+                  'parts': [
+                      {'path': 'firmware/bootloader.bin', 'offset': 0},
+                      {'path': 'firmware/partitions.bin', 'offset': 32768},
+                      {'path': 'firmware/boot_app0.bin', 'offset': 57344},
+                      {'path': 'firmware/crosspoint-x4pro-app.bin', 'offset': 65536}
+                  ]
               }]
           }
           with open('dist/flasher/crosspoint-manifest.json', 'w') as f:
               json.dump(manifest, f, indent=2)
           "
           
-          echo "Flasher site contents:"
+          echo "=== Flasher site contents ==="
           find dist/flasher -type f -exec ls -la {} \;
+          
+          echo ""
+          echo "=== Generated CrossPoint manifest ==="
+          cat dist/flasher/crosspoint-manifest.json
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
@@ -250,26 +270,45 @@ jobs:
               --title "margin $VERSION - BOOTLOOP WARNING" \
               --notes "## ⚠️ WARNING: v0.1.0 Causes Bootloop - DO NOT INSTALL
 
-          **The v0.1.0 merged firmware causes devices to bootloop.** Installation is disabled in the web flasher.
+          **The v0.1.0 merged firmware caused a device to bootloop.** margin installation is disabled in the web flasher until the root cause is confirmed fixed.
 
-          If your device is bootlooping, use the web flasher to restore stock CrossPoint:
+          ### Root Cause Analysis
+          
+          The bootloop was caused by **ESP Web Tools failing to write the bootloader area** (0x0-0x10000) when flashing a merged binary with full-chip erase on ESP32-S3 native USB (USB-JTAG-Serial).
+
+          **Evidence:**
+          - After flashing, the device's flash at 0x0-0xFFFF was all 0xFF (erased)
+          - The merged binary itself had valid data at those offsets (bootloader magic 0xE9 at 0x0, partition table 0xAA50 at 0x8000)
+          - ROM log showed: \`invalid header: 0xffffffff\` (no bootloader present)
+
+          **Likely cause:** ESP32-S3's native USB (USB-JTAG-Serial) has known issues with large block writes in ESP Web Tools / esptool-js. The flash was erased successfully, but writing the early blocks (bootloader, partition table) failed silently, leaving them blank.
+
+          **Fix applied:**
+          - CrossPoint restore now uses separate parts instead of merged binary
+          - \`new_install_prompt_erase: false\` to avoid full-chip erase
+          - Each part written individually at its correct offset
+
+          ### Recovery
+          
+          If your device is bootlooping, see [docs/recovery.md](https://github.com/${{ github.repository }}/blob/main/docs/recovery.md) or use the web flasher to restore CrossPoint:
           https://yakov.khalinsky.com/margin/
-
-          ### Investigation
-          - Flash settings (mode/freq/size) match official CrossPoint ✓
-          - Bootloader and partition table are identical to stock ✓
-          - Root cause under investigation
 
           ### Assets (for debugging only)
           - **margin-x4pro-app.bin**: App only (do NOT flash without working bootloader)
-          - **crosspoint-x4pro-full.bin**: Full CrossPoint restore image
+          - **firmware/bootloader.bin**: Stock CrossPoint bootloader (offset 0x0)
+          - **firmware/partitions.bin**: Stock CrossPoint partition table (offset 0x8000)
+          - **firmware/boot_app0.bin**: OTA data init (offset 0xe000)
+          - **firmware/crosspoint-x4pro-app.bin**: Stock CrossPoint app (offset 0x10000)
           "
           fi
           
           # Upload assets
           gh release upload "$TAG" \
             dist/margin-x4pro-app.bin \
-            dist/crosspoint-x4pro-full.bin \
+            dist/firmware/bootloader.bin \
+            dist/firmware/partitions.bin \
+            dist/firmware/boot_app0.bin \
+            dist/firmware/crosspoint-x4pro-app.bin \
             --repo "${{ github.repository }}" \
             --clobber
 
