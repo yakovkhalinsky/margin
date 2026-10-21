@@ -33,8 +33,10 @@ make -C firmware/test
 
 ### Option 1: Web Flasher (recommended)
 
-Visit **[yakovkhalinsky.github.io/margin/](https://yakovkhalinsky.github.io/margin/)** to flash
+Visit **[yakov.khalinsky.com/margin/](https://yakov.khalinsky.com/margin/)** to flash
 directly from your browser using Chrome or Edge on desktop.
+
+> WebSerial requires HTTPS. Ensure "Enforce HTTPS" is enabled in GitHub Pages settings.
 
 ### Option 2: Command line
 
@@ -51,7 +53,7 @@ esptool.py --chip esp32s3 --port /dev/ttyACM0 --baud 921600 \
 
 ### Reverting to stock CrossPoint
 
-1. **Web Flasher**: Visit [yakovkhalinsky.github.io/margin/](https://yakovkhalinsky.github.io/margin/)
+1. **Web Flasher**: Visit [yakov.khalinsky.com/margin/](https://yakov.khalinsky.com/margin/)
    and click "Restore stock CrossPoint"
 2. **CrossPoint's web flasher**: Go to [crosspointreader.com/#flash-tools](https://crosspointreader.com/#flash-tools)
 3. **Command line**: Download from [CrossPoint releases](https://github.com/crosspoint-reader/crosspoint-reader/releases)

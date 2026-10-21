@@ -14,10 +14,13 @@ open-source [CrossPoint Reader](https://github.com/crosspoint-reader/crosspoint-
 
 ## Web Flasher
 
-**Flash margin directly from your browser:** [yakovkhalinsky.github.io/margin/](https://yakovkhalinsky.github.io/margin/)
+**Flash margin directly from your browser:** [yakov.khalinsky.com/margin/](https://yakov.khalinsky.com/margin/)
 
 The web flasher uses [ESP Web Tools](https://esphome.github.io/esp-web-tools/) and works in
 Chrome/Edge on desktop. It can install margin or restore the official CrossPoint firmware.
+
+> **Note**: WebSerial requires a secure context (HTTPS). Ensure "Enforce HTTPS" is enabled in the
+> GitHub Pages settings for the flasher to work.
 
 ## Features (planned)
 
@@ -89,7 +92,7 @@ cd firmware/upstream/crosspoint-reader && pio run -e margin_x4pro
 
 If you want to go back to the official CrossPoint Reader firmware:
 
-1. **Web Flasher** (easiest): Visit the [margin web flasher](https://yakovkhalinsky.github.io/margin/)
+1. **Web Flasher** (easiest): Visit the [margin web flasher](https://yakov.khalinsky.com/margin/)
    and click "Restore stock CrossPoint"
 
 2. **CrossPoint's web flasher**: Go to [crosspointreader.com/#flash-tools](https://crosspointreader.com/#flash-tools),

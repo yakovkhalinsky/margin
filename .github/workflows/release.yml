@@ -62,99 +62,128 @@ jobs:
           cd firmware/upstream/crosspoint-reader
           pio run -e margin_x4pro_release
 
-      - name: Locate build artifacts
+      - name: Verify build artifacts exist
         id: artifacts
         run: |
           BUILD_DIR="firmware/upstream/crosspoint-reader/.pio/build/margin_x4pro_release"
           
-          # List what we have
           echo "Build directory contents:"
           ls -la "$BUILD_DIR/"
           
-          # Find bootloader (PlatformIO puts it in different places)
-          if [ -f "$BUILD_DIR/bootloader.bin" ]; then
-            BOOTLOADER="$BUILD_DIR/bootloader.bin"
-          else
-            # Try to find in the framework packages
-            BOOTLOADER=$(find ~/.platformio/packages -name "bootloader.bin" -path "*esp32s3*" | head -1)
+          # Verify required files exist
+          test -f "$BUILD_DIR/bootloader.bin" || { echo "ERROR: bootloader.bin not found"; exit 1; }
+          test -f "$BUILD_DIR/partitions.bin" || { echo "ERROR: partitions.bin not found"; exit 1; }
+          test -f "$BUILD_DIR/firmware.bin" || { echo "ERROR: firmware.bin not found"; exit 1; }
+          
+          # Find boot_app0.bin in PlatformIO packages
+          BOOT_APP0=$(find ~/.platformio/packages/framework-arduinoespressif32 -name "boot_app0.bin" -path "*/partitions/*" | head -1)
+          if [ -z "$BOOT_APP0" ] || [ ! -f "$BOOT_APP0" ]; then
+            echo "ERROR: boot_app0.bin not found in PlatformIO packages"
+            find ~/.platformio/packages -name "boot_app0.bin" 2>/dev/null || true
+            exit 1
           fi
           
-          # Partition table
-          PARTITIONS="$BUILD_DIR/partitions.bin"
-          
-          # Application
-          APP="$BUILD_DIR/firmware.bin"
-          
-          # boot_app0.bin (OTA selector)
-          BOOT_APP0=$(find ~/.platformio/packages -name "boot_app0.bin" | head -1)
-          
-          echo "bootloader=$BOOTLOADER" >> "$GITHUB_OUTPUT"
-          echo "partitions=$PARTITIONS" >> "$GITHUB_OUTPUT"
           echo "boot_app0=$BOOT_APP0" >> "$GITHUB_OUTPUT"
-          echo "app=$APP" >> "$GITHUB_OUTPUT"
-          
-          echo "Bootloader: $BOOTLOADER"
-          echo "Partitions: $PARTITIONS"
-          echo "Boot app0: $BOOT_APP0"
-          echo "App: $APP"
+          echo "All required files found:"
+          echo "  Bootloader: $BUILD_DIR/bootloader.bin"
+          echo "  Partitions: $BUILD_DIR/partitions.bin"
+          echo "  Boot app0:  $BOOT_APP0"
+          echo "  Firmware:   $BUILD_DIR/firmware.bin"
 
       - name: Create merged firmware binary
         env:
-          VERSION: ${{ steps.version.outputs.version }}
+          BOOT_APP0: ${{ steps.artifacts.outputs.boot_app0 }}
         run: |
           BUILD_DIR="firmware/upstream/crosspoint-reader/.pio/build/margin_x4pro_release"
-          
-          # Create output directory
           mkdir -p dist
           
-          # Merge all parts into a single binary
-          # ESP32-S3 offsets: bootloader@0x0, partitions@0x8000, boot_app0@0xe000, app@0x10000
-          esptool.py --chip esp32s3 merge_bin \
+          # ESP32-S3 flash offsets (verified against CrossPoint partitions.csv):
+          # - Bootloader: 0x0 (ESP32-S3 uses 0x0, not 0x1000 like ESP32)
+          # - Partition table: 0x8000
+          # - OTA data (boot_app0): 0xe000
+          # - Application: 0x10000
+          esptool --chip esp32s3 merge-bin \
             -o "dist/margin-x4pro-merged.bin" \
-            --flash_mode dio \
-            --flash_freq 80m \
-            --flash_size 16MB \
+            --flash-mode dio \
+            --flash-freq 80m \
+            --flash-size 16MB \
             0x0 "$BUILD_DIR/bootloader.bin" \
             0x8000 "$BUILD_DIR/partitions.bin" \
-            0xe000 ~/.platformio/packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin \
+            0xe000 "$BOOT_APP0" \
             0x10000 "$BUILD_DIR/firmware.bin"
           
-          # Also copy the app-only binary for those who just want to update
           cp "$BUILD_DIR/firmware.bin" "dist/margin-x4pro-app.bin"
           
-          echo "Created merged binary:"
+          echo "Created binaries:"
           ls -la dist/
 
-      - name: Update manifest with version
+      - name: Download CrossPoint X4 Pro firmware
+        run: |
+          mkdir -p dist/flasher/firmware
+          
+          # Download latest CrossPoint X4 Pro release for "restore stock" option
+          # CrossPoint is MIT licensed, redistribution allowed
+          curl -fsSL -o dist/flasher/firmware/crosspoint-x4pro.bin \
+            "https://github.com/crosspoint-reader/crosspoint-reader/releases/latest/download/firmware-x4pro.bin"
+          
+          echo "Downloaded CrossPoint firmware:"
+          ls -la dist/flasher/firmware/
+
+      - name: Prepare flasher site with bundled firmware
         env:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
-          mkdir -p dist/flasher
-          cp flasher/index.html dist/flasher/
-          cp flasher/crosspoint-manifest.json dist/flasher/
+          # Copy margin firmware to flasher directory
+          cp dist/margin-x4pro-merged.bin dist/flasher/firmware/
           
-          # Create manifest pointing to this release
-          cat > dist/flasher/manifest.json << 'EOF'
-{
-  "name": "margin",
-  "version": "$VERSION",
-  "new_install_prompt_erase": true,
-  "builds": [
-    {
-      "chipFamily": "ESP32-S3",
-      "parts": [
-        {
-          "path": "https://github.com/REPO/releases/download/vVERSION/margin-x4pro-merged.bin",
-          "offset": 0
-        }
-      ]
-    }
-  ]
-}
-EOF
-          # Replace placeholders
-          sed -i "s/\$VERSION/$VERSION/g" dist/flasher/manifest.json
-          sed -i "s|REPO|${{ github.repository }}|g" dist/flasher/manifest.json
+          # Copy static flasher files
+          cp flasher/index.html dist/flasher/
+          
+          # Generate margin manifest with relative path (avoids CORS issues)
+          python3 -c "
+          import json
+          manifest = {
+              'name': 'margin',
+              'version': '$VERSION',
+              'new_install_prompt_erase': True,
+              'builds': [{
+                  'chipFamily': 'ESP32-S3',
+                  'parts': [{
+                      'path': 'firmware/margin-x4pro-merged.bin',
+                      'offset': 0
+                  }]
+              }]
+          }
+          with open('dist/flasher/manifest.json', 'w') as f:
+              json.dump(manifest, f, indent=2)
+          "
+          
+          # Generate CrossPoint manifest with relative path
+          python3 -c "
+          import json
+          manifest = {
+              'name': 'CrossPoint Reader',
+              'version': 'latest',
+              'new_install_prompt_erase': False,
+              'builds': [{
+                  'chipFamily': 'ESP32-S3',
+                  'parts': [{
+                      'path': 'firmware/crosspoint-x4pro.bin',
+                      'offset': 65536
+                  }]
+              }]
+          }
+          with open('dist/flasher/crosspoint-manifest.json', 'w') as f:
+              json.dump(manifest, f, indent=2)
+          "
+          
+          echo "Flasher site contents:"
+          find dist/flasher -type f -exec ls -la {} \;
+          
+          echo "Manifest files:"
+          cat dist/flasher/manifest.json
+          echo ""
+          cat dist/flasher/crosspoint-manifest.json
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
@@ -189,18 +218,25 @@ EOF
               --notes "## margin $VERSION for Xteink X4 Pro
 
           ### Downloads
-          - **margin-x4pro-merged.bin**: Full firmware (bootloader + app) - use with the web flasher
-          - **margin-x4pro-app.bin**: App only (for updates when bootloader hasn't changed)
+          - **margin-x4pro-merged.bin**: Full firmware (bootloader + partitions + app) - use with the web flasher
+          - **margin-x4pro-app.bin**: App only at 0x10000 (for updates when bootloader hasn't changed)
 
           ### Web Flasher
-          Flash directly from your browser: https://${{ github.repository_owner }}.github.io/margin/
+          Flash directly from your browser: https://yakov.khalinsky.com/margin/
+
+          > **Note**: WebSerial requires HTTPS. If the flasher doesn't work, ensure 'Enforce HTTPS' is enabled in GitHub Pages settings.
 
           ### Flash Offsets (for manual flashing)
-          - Merged binary: \`esptool.py write_flash 0x0 margin-x4pro-merged.bin\`
-          - App only: \`esptool.py write_flash 0x10000 margin-x4pro-app.bin\`
+          \`\`\`bash
+          # Merged binary (recommended):
+          esptool.py --chip esp32s3 write_flash 0x0 margin-x4pro-merged.bin
+
+          # App only:
+          esptool.py --chip esp32s3 write_flash 0x10000 margin-x4pro-app.bin
+          \`\`\`
 
           ### What's New
-          See [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md) for details.
+          See the [commit history](https://github.com/${{ github.repository }}/commits/main) for details.
           "
           fi
           
