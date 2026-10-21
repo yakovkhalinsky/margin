@@ -105,24 +105,24 @@ jobs:
           fi
           
           # Generate CrossPoint restore manifest with SEPARATE PARTS
-          cat > dist/flasher/crosspoint-manifest.json << 'EOF'
-{
-  "name": "CrossPoint Reader (Full Restore)",
-  "version": "latest",
-  "new_install_prompt_erase": false,
-  "builds": [
-    {
-      "chipFamily": "ESP32-S3",
-      "parts": [
-        {"path": "firmware/bootloader.bin", "offset": 0},
-        {"path": "firmware/partitions.bin", "offset": 32768},
-        {"path": "firmware/boot_app0.bin", "offset": 57344},
-        {"path": "firmware/crosspoint-x4pro-app.bin", "offset": 65536}
-      ]
-    }
-  ]
-}
-EOF
+          python3 - <<'PYEOF'
+          import json
+          m = {
+              'name': 'CrossPoint Reader (Full Restore)',
+              'version': 'latest',
+              'new_install_prompt_erase': False,
+              'builds': [{
+                  'chipFamily': 'ESP32-S3',
+                  'parts': [
+                      {'path': 'firmware/bootloader.bin', 'offset': 0},
+                      {'path': 'firmware/partitions.bin', 'offset': 32768},
+                      {'path': 'firmware/boot_app0.bin', 'offset': 57344},
+                      {'path': 'firmware/crosspoint-x4pro-app.bin', 'offset': 65536},
+                  ],
+              }],
+          }
+          json.dump(m, open('dist/flasher/crosspoint-manifest.json', 'w'), indent=2)
+          PYEOF
           
           echo "=== Flasher site contents ==="
           find dist/flasher -type f -exec ls -la {} \;
