@@ -231,7 +231,7 @@ void CalendarActivity::renderAgenda() {
 
   int y = metrics.topPadding + metrics.headerHeight + metrics.verticalSpacing;
   const int lineHeight = renderer.getLineHeight(UI_10_FONT_ID) + 16;
-  const int dateLineHeight = renderer.getLineHeight(UI_8_FONT_ID) + 8;
+  const int dateLineHeight = renderer.getLineHeight(UI_10_FONT_ID) + 8;
   const int maxY = renderer.getScreenHeight() - metrics.buttonHintsHeight - 10;
 
   uint64_t lastDate = 0;
@@ -243,7 +243,7 @@ void CalendarActivity::renderAgenda() {
     if (lastDate == 0 || !isSameDay(lastDate, event->start)) {
       char dateStr[32];
       formatDate(dateStr, sizeof(dateStr), event->start);
-      renderer.drawText(UI_8_FONT_ID, x, y, dateStr);
+      renderer.drawText(UI_10_FONT_ID, x, y, dateStr);
       y += dateLineHeight;
       lastDate = event->start;
     }
@@ -273,7 +273,7 @@ void CalendarActivity::renderAgenda() {
       snprintf(loc, sizeof(loc), "  @ %s", event->location);
       size_t locLen = std::strlen(loc);
       if (locLen > 40) { locLen = 40; loc[40] = '\0'; std::strcpy(loc + 37, "..."); }
-      renderer.drawText(UI_8_FONT_ID, x + 20, y + renderer.getLineHeight(UI_10_FONT_ID) + 4, loc, !selected);
+      renderer.drawText(UI_10_FONT_ID, x + 20, y + renderer.getLineHeight(UI_10_FONT_ID) + 4, loc, !selected);
     }
 
     y += lineHeight;

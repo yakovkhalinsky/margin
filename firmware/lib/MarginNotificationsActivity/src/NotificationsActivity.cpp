@@ -205,7 +205,7 @@ void NotificationsActivity::renderList() {
     preview[previewLen] = '\0';
     if (previewLen == 50) std::strcpy(preview + 47, "...");
     
-    renderer.drawText(UI_8_FONT_ID, x + 10, y + renderer.getLineHeight(UI_10_FONT_ID) + 4, preview, !selected);
+    renderer.drawText(UI_10_FONT_ID, x + 10, y + renderer.getLineHeight(UI_10_FONT_ID) + 4, preview, !selected);
 
     y += lineHeight;
   }
@@ -213,7 +213,7 @@ void NotificationsActivity::renderList() {
   if (count > static_cast<size_t>(kItemsPerPage)) {
     char scroll[16];
     snprintf(scroll, sizeof(scroll), "%d/%zu", selectedIndex_ + 1, count);
-    renderer.drawText(UI_8_FONT_ID, pageWidth - 50, metrics.topPadding + 5, scroll);
+    renderer.drawText(UI_10_FONT_ID, pageWidth - 50, metrics.topPadding + 5, scroll);
   }
 
   const auto labels = mappedInput.mapLabels("Back", "View", "Dismiss", "");
@@ -267,7 +267,7 @@ void NotificationsActivity::renderDetail() {
 
   if (notif->quickReplyCount > 0) {
     y += 10;
-    renderer.drawText(UI_8_FONT_ID, x, y, "Quick replies:");
+    renderer.drawText(UI_10_FONT_ID, x, y, "Quick replies:");
     y += lineHeight;
     for (uint8_t i = 0; i < notif->quickReplyCount && i < proto::kMaxQuickReplies; ++i) {
       char opt[72];

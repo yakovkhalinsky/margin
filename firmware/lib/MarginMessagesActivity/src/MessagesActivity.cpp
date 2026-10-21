@@ -213,7 +213,7 @@ void MessagesActivity::renderThreadList() {
       preview[previewLen] = '\0';
       if (previewLen == 45) std::strcpy(preview + 42, "...");
 
-      renderer.drawText(UI_8_FONT_ID, x + 10, y + renderer.getLineHeight(UI_10_FONT_ID) + 4, preview, !selected);
+      renderer.drawText(UI_10_FONT_ID, x + 10, y + renderer.getLineHeight(UI_10_FONT_ID) + 4, preview, !selected);
     }
 
     y += lineHeight;
@@ -254,8 +254,8 @@ void MessagesActivity::renderThreadView() {
 
     const int msgX = msg.isOutgoing ? x + 20 : x;
 
-    renderer.drawText(UI_8_FONT_ID, msgX, y, header);
-    y += renderer.getLineHeight(UI_8_FONT_ID) + 2;
+    renderer.drawText(UI_10_FONT_ID, msgX, y, header);
+    y += renderer.getLineHeight(UI_10_FONT_ID) + 2;
 
     const char* text = msg.text;
     size_t textLen = std::strlen(text);
@@ -282,13 +282,13 @@ void MessagesActivity::renderThreadView() {
 
   if (currentThread_->quickReplyCount > 0) {
     const int qrY = renderer.getScreenHeight() - metrics.buttonHintsHeight - 35;
-    renderer.drawText(UI_8_FONT_ID, x, qrY, "Quick replies:");
+    renderer.drawText(UI_10_FONT_ID, x, qrY, "Quick replies:");
     int qrX = x + 90;
     for (uint8_t i = 0; i < currentThread_->quickReplyCount && i < 3; ++i) {
       char btn[32];
       snprintf(btn, sizeof(btn), "[%d]%s", i + 1, currentThread_->quickReplies[i]);
-      renderer.drawText(UI_8_FONT_ID, qrX, qrY, btn);
-      qrX += renderer.getTextWidth(UI_8_FONT_ID, btn) + 10;
+      renderer.drawText(UI_10_FONT_ID, qrX, qrY, btn);
+      qrX += renderer.getTextWidth(UI_10_FONT_ID, btn) + 10;
     }
   }
 
