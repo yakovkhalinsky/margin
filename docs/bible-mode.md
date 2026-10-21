@@ -1,7 +1,20 @@
 # Bible Study Mode
 
-Status: **Phase 1+2 implementation (scaffold)**. Navigation and notes work on host tests; not yet
-tested on X4 Pro hardware.
+Status: **Phase 2 implementation**. Build compiles for X4 Pro; host tests pass (39 tests).
+**Not yet tested on hardware** — the build is verified, but actual on-device functionality is
+unverified until flashed and tested.
+
+## What's Verified vs Unverified
+
+| Aspect | Status |
+|--------|--------|
+| Bible library (parsing, book data, notes) | **Verified** — 39 host tests pass |
+| CrossPoint `margin_x4pro` build | **Verified** — compiles successfully |
+| BibleActivity code | **Verified** — compiles, follows CrossPoint patterns |
+| Actual on-device navigation | **UNVERIFIED** — not yet flashed to hardware |
+| SD card file reading | **UNVERIFIED** — uses CrossPoint's Storage API |
+| Menu integration | **Partial** — "Bible" appears in menu but action wiring incomplete |
+| Jump-to-reference input | **Stub** — not yet implemented |
 
 ## Overview
 
@@ -109,6 +122,66 @@ OSIS reference format:
 | OBA, JON, MIC, NAH, HAB | |
 | ZEP, HAG, ZEC, MAL | |
 
+## Building and Flashing
+
+### Prerequisites
+
+- Python 3.10+
+- PlatformIO Core (install via `pip install platformio`)
+- virtualenv (install via `pip install virtualenv` if Python venv module unavailable)
+
+### Build Steps
+
+```bash
+# From repo root
+cd firmware
+
+# Run setup script (initializes submodule, applies patches, links config)
+./scripts/setup.sh
+
+# Build the firmware
+cd upstream/crosspoint-reader
+pio run -e margin_x4pro
+```
+
+The firmware binary will be at `.pio/build/margin_x4pro/firmware.bin`.
+
+### Flashing to X4 Pro
+
+**Option 1: esptool (command line)**
+
+```bash
+# With X4 Pro in bootloader mode (hold boot button while connecting USB)
+esptool.py --chip esp32s3 --port /dev/ttyACM0 --baud 921600 \
+    write_flash 0x10000 .pio/build/margin_x4pro/firmware.bin
+```
+
+**Option 2: PlatformIO upload**
+
+```bash
+pio run -e margin_x4pro -t upload
+```
+
+### Reverting to Stock CrossPoint
+
+If you need to go back to the official CrossPoint Reader firmware:
+
+1. Go to [crosspointreader.com/#flash-tools](https://crosspointreader.com/#flash-tools)
+2. Select your device (Xteink X4 Pro)
+3. Connect your X4 Pro in bootloader mode
+4. Click "Flash" — the web flasher will install the latest stable CrossPoint
+
+### Preparing Bible Data
+
+Before using Bible mode, you need Bible text on the SD card:
+
+```bash
+# Generate Bible data from BSB (Berean Standard Bible)
+python tools/bsb-converter.py --output /path/to/sd/margin/bible/
+```
+
+Copy the generated `margin/bible/` folder to your X4 Pro's SD card root.
+
 ## Firmware Architecture
 
 ### MarginBible Library (`firmware/lib/MarginBible/`)
@@ -164,15 +237,33 @@ size_t formatNoteLine(const Note& note, char* buf, size_t cap);
 }  // namespace margin::bible
 ```
 
-### MarginBibleApp (`firmware/lib/MarginBibleApp/`)
+### BibleActivity (`firmware/lib/MarginBibleActivity/`)
 
-PapyriX MiniApp for Bible reading:
+CrossPoint Activity for Bible reading, following the Activity pattern used throughout CrossPoint:
 
-- **Book/Chapter selector**: Left/Right buttons cycle books, Up/Down cycle chapters
-- **Verse display**: Renders current chapter with verse numbers, word-wrapped
-- **Jump-to-reference**: Center button opens a reference input (quick-pick or type)
-- **Notes indicator**: Highlighted verses show a marker; press to view/edit note
-- **Page buttons**: Scroll within chapter or advance to next/prev chapter
+```cpp
+class BibleActivity final : public Activity {
+ public:
+    void onEnter() override;   // Load saved position, initialize UI
+    void onExit() override;    // Save position to NVS
+    void loop() override;      // Handle input
+    void render(RenderLock&&); // Draw current view
+ private:
+    enum class Mode { Reading, BookSelect, ChapterSelect, JumpToRef };
+    // ...
+};
+```
+
+Features:
+- **Book/Chapter selector**: Up/Down buttons cycle books, PageBack/PageForward cycle chapters
+- **Verse display**: Renders current chapter with verse numbers, scrolls with Up/Down
+- **Book picker**: Press Confirm to open book selector, navigate with Up/Down, select with Confirm
+- **Chapter grid**: After selecting a book, pick chapter from a grid view
+- **Position persistence**: Saves book/chapter to NVS (Non-Volatile Storage) on exit
+- **Jump-to-reference**: (TODO) Center button opens a reference input
+
+The activity is registered in CrossPoint's ActivityManager via `setup.sh`, which injects the
+necessary includes and `goToBible()` method. The "Bible" menu entry is added to HomeActivity.
 
 ### BLE Integration
 
@@ -244,19 +335,29 @@ The converter:
 
 ## Roadmap
 
-### Phase 1: Bible Reader (this PR)
+### Phase 1: Bible Reader (PR #1, merged)
 - [x] Data format design (index.json, book files, notes.jsonl)
 - [x] Reference parser with tests
 - [x] Book metadata (66 books, OSIS IDs, names)
 - [x] Python converter for BSB
-- [ ] MarginBibleApp MiniApp (scaffold, renders static text)
-- [ ] Navigation with page buttons
+- [x] Android stubs and documentation
 
-### Phase 2: Notes and Highlights (this PR)
+### Phase 2: CrossPoint Integration (PR #2, this PR)
+- [x] Migrate from PapyriX to CrossPoint Reader
+- [x] BibleActivity with book/chapter navigation
+- [x] Chapter loading from SD card
+- [x] Position persistence (NVS)
+- [x] Build compiles for X4 Pro
+- [x] Host tests pass (39 tests)
+- [ ] Verify on actual hardware (TODO)
+- [ ] Complete menu action wiring
+- [ ] Jump-to-reference input screen
+
+### Phase 2b: Notes and Highlights (future)
 - [x] JSONL notes format design
 - [x] Notes parser/writer with tests
 - [ ] Highlight rendering in verse display
-- [ ] Note viewing on device
+- [ ] Note viewing/editing on device
 - [x] BLE protocol additions documented
 
 ### Phase 3: Treasury of Scripture Knowledge (future)

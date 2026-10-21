@@ -1,0 +1,12 @@
+{
+    "name": "MarginBibleActivity",
+    "version": "0.1.0",
+    "description": "Bible reader Activity for margin on CrossPoint Reader",
+    "keywords": "bible, reader, eink, crosspoint",
+    "license": "MIT",
+    "dependencies": {
+        "MarginBible": "*"
+    },
+    "frameworks": "arduino",
+    "platforms": "espressif32"
+}
