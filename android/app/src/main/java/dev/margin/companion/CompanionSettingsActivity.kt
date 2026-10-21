@@ -28,6 +28,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -35,8 +36,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import dev.margin.ble.MarginBleClient
-import dev.margin.protocol.NotifPush
-import dev.margin.protocol.encodeNotifPush
+import dev.margin.protocol.CompanionMessages
+import dev.margin.protocol.MsgType
+import dev.margin.protocol.NotifPushData
 
 class CompanionSettingsActivity : ComponentActivity() {
     private lateinit var deviceAssociationLauncher: ActivityResultLauncher<IntentSenderRequest>
@@ -94,22 +96,24 @@ class CompanionSettingsActivity : ComponentActivity() {
         }
 
         val timestamp = System.currentTimeMillis()
-        val notif = NotifPush(
-            notifId = (timestamp % 100000).toInt(),
+        val notif = NotifPushData(
             notifKey = "dev.margin.companion|test_$timestamp",
-            appPkg = "dev.margin.companion",
+            notifId = timestamp % 100000,
+            app = "dev.margin.companion",
             appName = "margin Companion",
             title = "Test Notification",
             body = "This is a test notification sent at ${java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date(timestamp))}",
-            timestampMs = timestamp,
-            category = "test",
-            priority = 2
+            timestamp = timestamp
         )
 
-        val frame = encodeNotifPush(notif)
-        bleClient.sendFrame(frame)
-        Toast.makeText(this, "Test notification sent", Toast.LENGTH_SHORT).show()
-        Log.d(TAG, "Sent test notification: id=${notif.notifId}")
+        val body = CompanionMessages.encodeNotifPush(notif)
+        val sent = bleClient.send(MsgType.NOTIF_PUSH, body)
+        if (sent) {
+            Toast.makeText(this, "Test notification sent", Toast.LENGTH_SHORT).show()
+            Log.d(TAG, "Sent test notification: id=${notif.notifId}")
+        } else {
+            Toast.makeText(this, "Failed to send", Toast.LENGTH_SHORT).show()
+        }
     }
 
     private fun requestPermissions() {
@@ -191,6 +195,7 @@ class CompanionSettingsActivity : ComponentActivity() {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CompanionSettingsScreen(
     onPairDevice: () -> Unit,

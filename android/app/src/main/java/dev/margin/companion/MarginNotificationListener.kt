@@ -75,8 +75,8 @@ class MarginNotificationListener : NotificationListenerService() {
         val notification = sbn.notification ?: return
         val extras = notification.extras ?: return
 
-        val isMessagingStyle = extras.containsKey(Notification.EXTRA_MESSAGING_STYLE) ||
-                extras.getParcelableArray(Notification.EXTRA_MESSAGES) != null
+        val isMessagingStyle = extras.getParcelableArray(Notification.EXTRA_MESSAGES) != null ||
+                extras.containsKey("android.messagingStyleUser")
 
         if (isMessagingStyle && isMessagingApp(sbn.packageName)) {
             processMessagingNotification(sbn, service)

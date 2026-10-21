@@ -137,7 +137,6 @@ class MarginBleClient(private val context: Context) {
         val ch = rx ?: return
 
         if (f.done) {
-            f.reset()
             outgoing = null
             cancelAckTimeout()
 

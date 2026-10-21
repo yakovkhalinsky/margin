@@ -194,7 +194,8 @@ class CompanionService : Service() {
     }
 
     private fun handleMessage(msg: dev.margin.protocol.Message) {
-        when (msg.type) {
+        val msgType = MsgType.of(msg.type)
+        when (msgType) {
             MsgType.NOTIF_DISMISS -> {
                 val dismiss = CompanionMessages.decodeNotifDismiss(msg.body)
                 dismiss?.let { notifyDismiss(it.notifKey) }
@@ -216,7 +217,7 @@ class CompanionService : Service() {
             MsgType.TIME_REQUEST -> {
                 sendTimeSync()
             }
-            else -> Log.d(TAG, "Unhandled message type: ${msg.type}")
+            else -> Log.d(TAG, "Unhandled message type: $msgType (code=${msg.type})")
         }
     }
 

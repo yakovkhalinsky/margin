@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -37,6 +38,7 @@ data class AppInfo(
     var enabled: Boolean
 )
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AppAllowlistScreen() {
     val context = LocalContext.current
