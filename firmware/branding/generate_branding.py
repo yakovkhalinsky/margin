@@ -47,104 +47,139 @@ def load_source_image(source_path: Path) -> Image.Image:
 
 
 def remove_glitch_streaks(rgb_array: np.ndarray) -> tuple[np.ndarray, int, int]:
-    """Remove horizontal glitch/streak artifacts and return cleaned image with crop bounds.
+    """Remove horizontal glitch/streak artifacts using silhouette-based masking.
     
     The source has horizontal glitch lines extending from the bear's sides.
-    Strategy: Find the content bounding box, then crop the outer 12% from each side
-    to remove the streak regions. Then mask any remaining streak pixels.
+    Strategy:
+    1. Create a filled silhouette using morphological closing (fills interior gaps)
+    2. Find the main connected component (the bear)
+    3. Dilate by 2 pixels to include edge detail
+    4. Mask out all pixels outside the dilated silhouette
+    5. Crop to content with at least 16px margin on all sides
     """
+    from scipy import ndimage
+    
     h, w = rgb_array.shape[:2]
+    result = rgb_array.copy()
     
     # Convert to brightness for analysis
     brightness = np.max(rgb_array, axis=2).astype(float)
-    content_mask = brightness > 40
+    content_mask = brightness > 35  # Lower threshold to catch all bear parts
     
-    # Find content bounding box
-    cols = np.any(content_mask, axis=0)
-    rows = np.any(content_mask, axis=1)
+    # Use morphological closing to fill gaps within the bear
+    # This connects the bear's parts (ears, face, body) into one silhouette
+    # Use a moderate structuring element - large enough to bridge internal gaps
+    # but small enough not to connect distant streaks
+    struct_close = np.ones((15, 15), dtype=bool)  # Moderate closing kernel
+    closed_mask = ndimage.binary_closing(content_mask, struct_close, iterations=2)
     
-    if not np.any(cols) or not np.any(rows):
-        return rgb_array.copy(), 0, 0
+    # Fill holes in the closed mask (the interior dark areas)
+    filled_mask = ndimage.binary_fill_holes(closed_mask)
     
-    x_indices = np.where(cols)[0]
-    y_indices = np.where(rows)[0]
+    # Label connected components on the filled mask
+    labeled, num_features = ndimage.label(filled_mask)
     
-    content_left = x_indices[0]
-    content_right = x_indices[-1]
-    content_top = y_indices[0]
-    content_bottom = y_indices[-1]
+    if num_features == 0:
+        return result, 0, 0
     
-    content_width = content_right - content_left
-    content_height = content_bottom - content_top
+    # Find the largest component (this should be the bear)
+    component_sizes = ndimage.sum(filled_mask, labeled, range(1, num_features + 1))
+    main_label = np.argmax(component_sizes) + 1
     
-    # Crop 14% from left and right sides to remove streak regions
-    # The bear body is in the central ~72% of the content width
-    crop_pct = 0.14
-    left_crop = int(content_width * crop_pct)
-    right_crop = int(content_width * crop_pct)
+    # Create silhouette mask from the main component
+    silhouette = (labeled == main_label)
     
-    new_left = content_left + left_crop
-    new_right = content_right - right_crop
+    # Dilate the silhouette by 2 pixels to include edge detail
+    struct_dilate = ndimage.generate_binary_structure(2, 1)  # 4-connected
+    dilated_silhouette = ndimage.binary_dilation(silhouette, struct_dilate, iterations=2)
     
-    # Keep small top margin for ears
-    top_margin = int(content_height * 0.02)
-    new_top = max(0, content_top - top_margin)
-    new_bottom = content_bottom + 5
+    # Mask out pixels outside the dilated silhouette
+    # But only mask pixels that are bright enough to be visible streaks
+    for y in range(h):
+        for x in range(w):
+            if not dilated_silhouette[y, x] and brightness[y, x] > 40:
+                result[y, x] = [0, 0, 0]  # Set to black (background)
     
-    # Ensure bounds are valid
-    new_left = max(0, new_left)
-    new_right = min(w - 1, new_right)
-    new_top = max(0, new_top)
-    new_bottom = min(h - 1, new_bottom)
-    
-    # Crop
-    result = rgb_array[new_top:new_bottom+1, new_left:new_right+1].copy()
-    
-    # Mask any remaining streak pixels at the edges
-    result_h, result_w = result.shape[:2]
+    # Additional streak detection: find and mask thin horizontal artifacts
+    # that might still be inside the silhouette (at the edges)
+    # Look at pixels near the silhouette edges that are thin vertically
     result_brightness = np.max(result, axis=2).astype(float)
     
-    edge_width = int(result_w * 0.10)  # Check outer 10% on each side
-    
-    for y in range(result_h):
-        # Left edge
-        for x in range(min(edge_width, result_w)):
+    # Find left and right bounds of the silhouette at each row
+    for y in range(h):
+        row_silhouette = dilated_silhouette[y, :]
+        if not np.any(row_silhouette):
+            continue
+        
+        sil_indices = np.where(row_silhouette)[0]
+        sil_left = sil_indices[0]
+        sil_right = sil_indices[-1]
+        
+        # Check left edge region for streak pixels
+        edge_check = 30  # Check 30 pixels into each edge
+        for x in range(sil_left, min(sil_left + edge_check, w)):
             if result_brightness[y, x] < 50:
                 continue
-            # Count vertical extent of this pixel's connected component
+            # Count vertical extent at this position
             vert = 1
-            for dy in range(1, 15):
+            for dy in range(1, 20):
                 if y - dy >= 0 and result_brightness[y - dy, x] > 50:
                     vert += 1
                 else:
                     break
-            for dy in range(1, 15):
-                if y + dy < result_h and result_brightness[y + dy, x] > 50:
+            for dy in range(1, 20):
+                if y + dy < h and result_brightness[y + dy, x] > 50:
                     vert += 1
                 else:
                     break
-            if vert < 12:  # Thin = streak
+            # If thin vertically, it's a streak
+            if vert < 15:
                 result[y, x] = [0, 0, 0]
         
-        # Right edge
-        for x in range(max(0, result_w - edge_width), result_w):
+        # Check right edge region
+        for x in range(max(sil_right - edge_check, 0), sil_right + 1):
             if result_brightness[y, x] < 50:
                 continue
             vert = 1
-            for dy in range(1, 15):
+            for dy in range(1, 20):
                 if y - dy >= 0 and result_brightness[y - dy, x] > 50:
                     vert += 1
                 else:
                     break
-            for dy in range(1, 15):
-                if y + dy < result_h and result_brightness[y + dy, x] > 50:
+            for dy in range(1, 20):
+                if y + dy < h and result_brightness[y + dy, x] > 50:
                     vert += 1
                 else:
                     break
-            if vert < 12:
+            if vert < 15:
                 result[y, x] = [0, 0, 0]
     
-    return result, new_left, new_top
+    # Find the bounding box of the dilated silhouette with 16px margin
+    rows = np.any(dilated_silhouette, axis=1)
+    cols = np.any(dilated_silhouette, axis=0)
+    
+    if not np.any(rows) or not np.any(cols):
+        return result, 0, 0
+    
+    y_indices = np.where(rows)[0]
+    x_indices = np.where(cols)[0]
+    
+    top = y_indices[0]
+    bottom = y_indices[-1]
+    left = x_indices[0]
+    right = x_indices[-1]
+    
+    # Add 16px margin on all sides (minimum)
+    margin = 16
+    top = max(0, top - margin)
+    bottom = min(h - 1, bottom + margin)
+    left = max(0, left - margin)
+    right = min(w - 1, right + margin)
+    
+    # Crop to the bounded region
+    cropped = result[top:bottom+1, left:right+1]
+    
+    return cropped, left, top
 
 
 def extract_bear_region(source: Image.Image) -> tuple[Image.Image, tuple]:
@@ -703,6 +738,62 @@ def create_comparison_image(light_old: Image.Image, light_new: Image.Image,
     return comparison
 
 
+def create_old_blob_style_logo(source: Image.Image, target_size: int) -> Image.Image:
+    """Create the old-style blob logo for comparison.
+    
+    This recreates the original problem where the light variant
+    had solid black blobs instead of proper detail.
+    Simply extracts neon outlines without treating fills as paper.
+    """
+    cropped, _ = extract_bear_region(source)
+    rgb = np.array(cropped.convert('RGB'))
+    alpha = np.array(cropped.split()[3]) if cropped.mode == 'RGBA' else np.ones(rgb.shape[:2]) * 255
+    
+    h, w = rgb.shape[:2]
+    r, g, b = rgb[:, :, 0], rgb[:, :, 1], rgb[:, :, 2]
+    
+    brightness = np.maximum(np.maximum(r, g), b).astype(float)
+    min_channel = np.minimum(np.minimum(r, g), b).astype(float)
+    saturation = brightness - min_channel
+    
+    # Old approach: everything bright becomes black, dark becomes white
+    # This creates the "blob" effect where fills merge into solid black
+    output = np.full((h, w), 255, dtype=np.uint8)
+    
+    for y in range(h):
+        for x in range(w):
+            if alpha[y, x] < 128:
+                output[y, x] = 255
+                continue
+            
+            br = brightness[y, x]
+            if br < 40:
+                output[y, x] = 255  # Background = white
+            elif br > 80:
+                output[y, x] = 0  # Everything else = black blob
+            else:
+                output[y, x] = 128  # Mid tone
+    
+    result = Image.fromarray(output, 'L')
+    
+    # Resize with margin
+    inner_size = int(target_size * 0.88)
+    top_margin = int(target_size * 0.06)
+    
+    ratio = inner_size / max(result.width, result.height)
+    new_w = int(result.width * ratio)
+    new_h = int(result.height * ratio)
+    
+    resized = result.resize((new_w, new_h), Image.LANCZOS)
+    
+    canvas = Image.new("L", (target_size, target_size), 255)
+    paste_x = (target_size - new_w) // 2
+    paste_y = top_margin + (inner_size - new_h) // 2
+    canvas.paste(resized, (paste_x, paste_y))
+    
+    return canvas
+
+
 def load_old_light_logo() -> Image.Image:
     """Load the old light logo for comparison (if it exists)."""
     old_path = GENERATED_DIR / "margin-logo-400-1bit.png"
@@ -719,9 +810,6 @@ def main():
     
     GENERATED_DIR.mkdir(parents=True, exist_ok=True)
     DOCS_DIR.mkdir(parents=True, exist_ok=True)
-    
-    # Load old logo for comparison before we overwrite
-    old_light_logo = load_old_light_logo()
     
     # Load source
     source_path = SOURCE_DIR / "od3sa-cyber-bear.jpg"
@@ -797,13 +885,10 @@ def main():
     preview_favicon.save(favicon_path)
     print(f"Saved: {favicon_path}")
     
-    # Comparison image
+    # Comparison image - generate old blob style for "before" panel
     print("\nGenerating comparison image...")
-    if old_light_logo is not None:
-        comparison = create_comparison_image(old_light_logo, logo_light_4level, logo_dark_4level)
-    else:
-        # Use same image as "before" if no old version exists
-        comparison = create_comparison_image(logo_light_4level, logo_light_4level, logo_dark_4level)
+    old_blob_logo = create_old_blob_style_logo(source, TARGET_LOGO_WIDTH)
+    comparison = create_comparison_image(old_blob_logo, logo_light_4level, logo_dark_4level)
     comparison_path = DOCS_DIR / "comparison-light-dark.png"
     comparison.save(comparison_path)
     print(f"Saved: {comparison_path}")
