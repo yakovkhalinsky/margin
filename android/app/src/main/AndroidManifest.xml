@@ -13,6 +13,12 @@
     <!-- LLM APIs (cloud) or Ollama on the local network. -->
     <uses-permission android:name="android.permission.INTERNET" />
 
+    <!-- Companion app permissions -->
+    <uses-permission android:name="android.permission.READ_CALENDAR" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
+
     <!-- TODO(M4): network_security_config allowing cleartext only to the user's Ollama host. -->
     <application
         android:allowBackup="false"
@@ -27,5 +33,33 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- Companion settings activity -->
+        <activity
+            android:name=".companion.CompanionSettingsActivity"
+            android:exported="true"
+            android:label="margin Companion Settings" />
+
+        <!-- App allowlist activity -->
+        <activity
+            android:name=".companion.AppAllowlistActivity"
+            android:exported="false"
+            android:label="App Filter" />
+
+        <!-- Companion foreground service -->
+        <service
+            android:name=".companion.CompanionService"
+            android:foregroundServiceType="connectedDevice"
+            android:exported="false" />
+
+        <!-- Notification listener service -->
+        <service
+            android:name=".companion.MarginNotificationListener"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
     </application>
 </manifest>

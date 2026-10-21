@@ -22,6 +22,8 @@ class TlvWriter {
   TlvWriter& u8(Tag tag, uint8_t v) { return bytes(tag, &v, 1); }
   TlvWriter& u16(Tag tag, uint16_t v);
   TlvWriter& u32(Tag tag, uint32_t v);
+  TlvWriter& u64(Tag tag, uint64_t v);
+  TlvWriter& i32(Tag tag, int32_t v);
 
   // False once any write did not fit; the buffer then holds only the items that fit.
   bool ok() const { return ok_; }
@@ -43,6 +45,8 @@ struct TlvItem {
   bool asU8(uint8_t& out) const;
   bool asU16(uint16_t& out) const;
   bool asU32(uint32_t& out) const;
+  bool asU64(uint64_t& out) const;
+  bool asI32(int32_t& out) const;
 };
 
 class TlvReader {

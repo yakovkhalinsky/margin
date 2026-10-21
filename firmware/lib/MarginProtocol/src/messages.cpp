@@ -233,4 +233,143 @@ bool isSafeFileName(const char* name, size_t len) {
   return false;
 }
 
+// ---- Companion app messages --------------------------------------------------
+
+bool decodeNotifPush(const uint8_t* body, size_t len, NotifPush& out) {
+  out = NotifPush{};
+  bool haveKey = false, haveId = false;
+  bool ok = forEach(body, len, [&](const TlvItem& it) {
+    uint8_t v;
+    switch (it.tag) {
+      case Tag::NotifKey: haveKey = true; out.notifKey = toStr(it); return true;
+      case Tag::NotifId: haveId = true; return it.asU32(out.notifId);
+      case Tag::NotifApp: out.app = toStr(it); return true;
+      case Tag::NotifAppName: out.appName = toStr(it); return true;
+      case Tag::NotifTitle: out.title = toStr(it); return true;
+      case Tag::NotifBody: out.body = toStr(it); return true;
+      case Tag::NotifTimestamp: return it.asU64(out.timestamp);
+      case Tag::NotifIcon:
+        if (!it.asU8(v)) return false;
+        out.icon = static_cast<NotifIcon>(v);
+        return true;
+      case Tag::QuickReplyOpt:
+        if (out.quickReplyCount < kMaxQuickReplies) out.quickReplies[out.quickReplyCount++] = toStr(it);
+        return true;
+      default: return true;
+    }
+  });
+  return ok && haveKey && haveId;
+}
+
+bool decodeMsgThreadPush(const uint8_t* body, size_t len, MsgThreadPush& out) {
+  out = MsgThreadPush{};
+  bool haveConvId = false;
+  bool ok = forEach(body, len, [&](const TlvItem& it) {
+    switch (it.tag) {
+      case Tag::MsgConvId: haveConvId = true; out.convId = toStr(it); return true;
+      case Tag::MsgThreadTitle: out.threadTitle = toStr(it); return true;
+      case Tag::NotifApp: out.app = toStr(it); return true;
+      case Tag::QuickReplyOpt:
+        if (out.quickReplyCount < kMaxQuickReplies) out.quickReplies[out.quickReplyCount++] = toStr(it);
+        return true;
+      case Tag::MsgRecord: {
+        if (out.messageCount >= kMaxMessagesPerThread) return true;
+        MessageRecord& rec = out.messages[out.messageCount];
+        TlvReader nested(it.value, it.len);
+        TlvItem nit;
+        while (nested.next(nit)) {
+          uint8_t v;
+          switch (nit.tag) {
+            case Tag::MsgSender: rec.sender = toStr(nit); break;
+            case Tag::MsgSenderKey: rec.senderKey = toStr(nit); break;
+            case Tag::MsgText: rec.text = toStr(nit); break;
+            case Tag::MsgTimestamp: nit.asU64(rec.timestamp); break;
+            case Tag::MsgIsOutgoing: if (nit.asU8(v)) rec.isOutgoing = (v != 0); break;
+            default: break;
+          }
+        }
+        if (nested.malformed()) return false;
+        out.messageCount++;
+        return true;
+      }
+      default: return true;
+    }
+  });
+  return ok && haveConvId;
+}
+
+bool decodeCalendarSync(const uint8_t* body, size_t len, CalendarSync& out) {
+  out = CalendarSync{};
+  return forEach(body, len, [&](const TlvItem& it) {
+    if (it.tag == Tag::CalRecord && out.eventCount < kMaxCalendarEvents) {
+      CalendarEvent& ev = out.events[out.eventCount];
+      TlvReader nested(it.value, it.len);
+      TlvItem nit;
+      bool haveId = false;
+      while (nested.next(nit)) {
+        uint8_t v;
+        switch (nit.tag) {
+          case Tag::CalEventId: haveId = nit.asU32(ev.eventId); break;
+          case Tag::CalTitle: ev.title = toStr(nit); break;
+          case Tag::CalStart: nit.asU64(ev.start); break;
+          case Tag::CalEnd: nit.asU64(ev.end); break;
+          case Tag::CalLocation: ev.location = toStr(nit); break;
+          case Tag::CalAllDay: if (nit.asU8(v)) ev.allDay = (v != 0); break;
+          default: break;
+        }
+      }
+      if (nested.malformed()) return false;
+      if (haveId) out.eventCount++;
+    }
+    return true;
+  });
+}
+
+bool decodeTimeSync(const uint8_t* body, size_t len, TimeSync& out) {
+  out = TimeSync{};
+  bool haveUtc = false;
+  bool ok = forEach(body, len, [&](const TlvItem& it) {
+    switch (it.tag) {
+      case Tag::TimeUtcMs: haveUtc = true; return it.asU64(out.utcMs);
+      case Tag::TimeTzOffset: return it.asI32(out.tzOffsetMinutes);
+      case Tag::TimeTzName: out.tzName = toStr(it); return true;
+      default: return true;
+    }
+  });
+  return ok && haveUtc;
+}
+
+size_t encodeNotifDismiss(uint8_t* out, size_t cap, const char* notifKey) {
+  TlvWriter w(out, cap);
+  w.str(Tag::NotifKey, notifKey);
+  return w.ok() ? w.size() : 0;
+}
+
+size_t encodeNotifClear(uint8_t* out, size_t cap) {
+  (void)out; (void)cap;
+  return 0;  // empty body
+}
+
+size_t encodeMsgMarkRead(uint8_t* out, size_t cap, const char* convId) {
+  TlvWriter w(out, cap);
+  w.str(Tag::MsgConvId, convId);
+  return w.ok() ? w.size() : 0;
+}
+
+size_t encodeMsgQuickReply(uint8_t* out, size_t cap, const char* convId, uint8_t optionIndex) {
+  TlvWriter w(out, cap);
+  w.str(Tag::MsgConvId, convId).u8(Tag::QuickReplyIdx, optionIndex);
+  return w.ok() ? w.size() : 0;
+}
+
+size_t encodeCalendarRequest(uint8_t* out, size_t cap) {
+  (void)out; (void)cap;
+  return 0;  // empty body
+}
+
+size_t encodeTimeRequest(uint8_t* out, size_t cap) {
+  (void)out; (void)cap;
+  return 0;  // empty body
+}
+
 }  // namespace margin::proto
