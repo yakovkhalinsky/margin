@@ -56,6 +56,25 @@ enum class MsgType : uint8_t {
   SyncRecords = 0x41,     // device -> app
   SyncDone = 0x42,        // device -> app
   SyncAck = 0x43,         // app -> device
+  BibleContext = 0x50,    // device -> app
+  BibleNoteSyncReq = 0x51,    // app -> device
+  BibleNoteRecords = 0x52,    // device -> app
+  BibleNoteSyncDone = 0x53,   // device -> app
+  BibleNotePush = 0x54,       // app -> device
+  BibleNoteAck = 0x55,        // device -> app
+  // Companion app messages (see docs/companion-v1.md)
+  NotifPush = 0x70,           // app -> device
+  NotifDismiss = 0x71,        // device -> app
+  NotifClear = 0x72,          // device -> app
+  NotifDismissAck = 0x73,     // app -> device
+  MsgThreadPush = 0x74,       // app -> device
+  MsgMarkRead = 0x75,         // device -> app
+  MsgQuickReply = 0x76,       // device -> app
+  MsgQuickReplyAck = 0x77,    // app -> device
+  CalendarSync = 0x80,        // app -> device
+  CalendarRequest = 0x81,     // device -> app
+  TimeSync = 0x90,            // app -> device
+  TimeRequest = 0x91,         // device -> app
 };
 
 // --- CTRL characteristic packets (never fragmented) --------------------------
@@ -130,6 +149,43 @@ enum class Tag : uint8_t {
   FreeKb = 0x2A,        // u32
   MaxBody = 0x2B,       // u32
   ResumeOffset = 0x2C,  // u32
+  // Bible study tags (0x60-0x6F)
+  BibleRef = 0x60,              // utf8, OSIS reference (e.g. "JHN.3.16")
+  BibleBookName = 0x61,         // utf8, full book name (e.g. "John")
+  BibleChapter = 0x62,          // u16, 1-based chapter number
+  BibleVerse = 0x63,            // u16, 1-based verse number
+  BibleNoteType = 0x64,         // u8: 0 highlight, 1 note
+  BibleHighlightColor = 0x65,   // u8: 0 yellow, 1 green, 2 blue, 3 pink
+  BibleNoteRecord = 0x66,       // nested TLV, repeatable
+  // Companion app tags (see docs/companion-v1.md)
+  NotifId = 0x70,               // u32
+  NotifKey = 0x71,              // utf8, Android notification key
+  NotifApp = 0x72,              // utf8, package name
+  NotifAppName = 0x73,          // utf8, human-readable app name
+  NotifTitle = 0x74,            // utf8
+  NotifBody = 0x75,             // utf8
+  NotifTimestamp = 0x76,        // u64, ms since epoch
+  NotifIcon = 0x77,             // u8, icon category
+  MsgConvId = 0x78,             // utf8, conversation ID
+  MsgSender = 0x79,             // utf8, sender name
+  MsgSenderKey = 0x7A,          // utf8, sender identifier
+  MsgText = 0x7B,               // utf8, message text
+  MsgTimestamp = 0x7C,          // u64, ms since epoch
+  MsgIsOutgoing = 0x7D,         // u8, 1 if sent by user
+  MsgRecord = 0x7E,             // nested TLV, repeatable
+  MsgThreadTitle = 0x7F,        // utf8, thread display title
+  CalEventId = 0x80,            // u32
+  CalTitle = 0x81,              // utf8
+  CalStart = 0x82,              // u64, ms since epoch
+  CalEnd = 0x83,                // u64, ms since epoch
+  CalLocation = 0x84,           // utf8
+  CalAllDay = 0x85,             // u8, 1 if all-day
+  CalRecord = 0x86,             // nested TLV, repeatable
+  QuickReplyOpt = 0x87,         // utf8, repeatable (max 6)
+  QuickReplyIdx = 0x88,         // u8, selected index
+  TimeUtcMs = 0x90,             // u64, current UTC time in ms
+  TimeTzOffset = 0x91,          // i32, timezone offset in minutes
+  TimeTzName = 0x92,            // utf8, timezone identifier
 };
 
 enum Feature : uint32_t {
@@ -137,6 +193,7 @@ enum Feature : uint32_t {
   kFeaturePassage = 1u << 1,
   kFeatureFilePush = 1u << 2,
   kFeatureSync = 1u << 3,
+  kFeatureCompanion = 1u << 4,  // notifications, messages, calendar
 };
 
 enum class Role : uint8_t { User = 0, Assistant = 1, System = 2, Tool = 3 };
@@ -146,8 +203,13 @@ enum class InputSource : uint8_t { Keyboard = 0, QuickReply = 1, Button = 2 };
 enum class PassageIntent : uint8_t { Ask = 0, Explain = 1, SummariseSelection = 2, SummariseChapter = 3, Define = 4, Translate = 5 };
 enum class RecordKind : uint8_t { Bookmark = 0, Highlight = 1, Progress = 2 };
 enum class FileResultCode : uint8_t { Ok = 0, Rejected = 1, NoSpace = 2, CrcMismatch = 3, IoError = 4, Aborted = 5, BadName = 6 };
+enum class NotifIcon : uint8_t { Default = 0, Message = 1, Email = 2, Call = 3, Calendar = 4 };
 
 constexpr size_t kMaxQuickReplies = 6;
+constexpr size_t kMaxNotifications = 32;
+constexpr size_t kMaxMessageThreads = 16;
+constexpr size_t kMaxMessagesPerThread = 50;
+constexpr size_t kMaxCalendarEvents = 100;
 
 // --- little-endian helpers ---------------------------------------------------
 inline void putU16(uint8_t* p, uint16_t v) {
@@ -165,5 +227,23 @@ inline uint32_t getU32(const uint8_t* p) {
   return static_cast<uint32_t>(p[0]) | (static_cast<uint32_t>(p[1]) << 8) | (static_cast<uint32_t>(p[2]) << 16) |
          (static_cast<uint32_t>(p[3]) << 24);
 }
+inline void putU64(uint8_t* p, uint64_t v) {
+  p[0] = static_cast<uint8_t>(v);
+  p[1] = static_cast<uint8_t>(v >> 8);
+  p[2] = static_cast<uint8_t>(v >> 16);
+  p[3] = static_cast<uint8_t>(v >> 24);
+  p[4] = static_cast<uint8_t>(v >> 32);
+  p[5] = static_cast<uint8_t>(v >> 40);
+  p[6] = static_cast<uint8_t>(v >> 48);
+  p[7] = static_cast<uint8_t>(v >> 56);
+}
+inline uint64_t getU64(const uint8_t* p) {
+  return static_cast<uint64_t>(p[0]) | (static_cast<uint64_t>(p[1]) << 8) |
+         (static_cast<uint64_t>(p[2]) << 16) | (static_cast<uint64_t>(p[3]) << 24) |
+         (static_cast<uint64_t>(p[4]) << 32) | (static_cast<uint64_t>(p[5]) << 40) |
+         (static_cast<uint64_t>(p[6]) << 48) | (static_cast<uint64_t>(p[7]) << 56);
+}
+inline int32_t getI32(const uint8_t* p) { return static_cast<int32_t>(getU32(p)); }
+inline void putI32(uint8_t* p, int32_t v) { putU32(p, static_cast<uint32_t>(v)); }
 
 }  // namespace margin::proto

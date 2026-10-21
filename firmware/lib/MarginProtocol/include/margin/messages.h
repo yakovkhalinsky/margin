@@ -109,4 +109,71 @@ size_t encodeError(uint8_t* out, size_t cap, uint16_t code, const char* text);
 // characters, no leading dot, at most 96 bytes, and an allowed extension (.epub .fb2 .md .txt .html .htm).
 bool isSafeFileName(const char* name, size_t len);
 
+// ---- Companion app messages (see docs/companion-v1.md) -----------------------
+
+struct NotifPush {
+  Str notifKey;               // Android notification key
+  uint32_t notifId = 0;
+  Str app;                    // package name
+  Str appName;                // human-readable app name
+  Str title;
+  Str body;
+  uint64_t timestamp = 0;     // ms since epoch
+  NotifIcon icon = NotifIcon::Default;
+  uint8_t quickReplyCount = 0;
+  Str quickReplies[kMaxQuickReplies];
+};
+
+struct MessageRecord {
+  Str sender;
+  Str senderKey;
+  Str text;
+  uint64_t timestamp = 0;
+  bool isOutgoing = false;
+};
+
+struct MsgThreadPush {
+  Str convId;
+  Str threadTitle;
+  Str app;
+  uint8_t messageCount = 0;
+  MessageRecord messages[kMaxMessagesPerThread];
+  uint8_t quickReplyCount = 0;
+  Str quickReplies[kMaxQuickReplies];
+};
+
+struct CalendarEvent {
+  uint32_t eventId = 0;
+  Str title;
+  uint64_t start = 0;
+  uint64_t end = 0;
+  Str location;
+  bool allDay = false;
+};
+
+struct CalendarSync {
+  uint8_t eventCount = 0;
+  CalendarEvent events[kMaxCalendarEvents];
+};
+
+struct TimeSync {
+  uint64_t utcMs = 0;
+  int32_t tzOffsetMinutes = 0;
+  Str tzName;
+};
+
+// Companion decoders (app -> device)
+bool decodeNotifPush(const uint8_t* body, size_t len, NotifPush& out);
+bool decodeMsgThreadPush(const uint8_t* body, size_t len, MsgThreadPush& out);
+bool decodeCalendarSync(const uint8_t* body, size_t len, CalendarSync& out);
+bool decodeTimeSync(const uint8_t* body, size_t len, TimeSync& out);
+
+// Companion encoders (device -> app)
+size_t encodeNotifDismiss(uint8_t* out, size_t cap, const char* notifKey);
+size_t encodeNotifClear(uint8_t* out, size_t cap);
+size_t encodeMsgMarkRead(uint8_t* out, size_t cap, const char* convId);
+size_t encodeMsgQuickReply(uint8_t* out, size_t cap, const char* convId, uint8_t optionIndex);
+size_t encodeCalendarRequest(uint8_t* out, size_t cap);
+size_t encodeTimeRequest(uint8_t* out, size_t cap);
+
 }  // namespace margin::proto

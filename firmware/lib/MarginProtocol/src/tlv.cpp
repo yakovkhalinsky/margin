@@ -27,6 +27,18 @@ TlvWriter& TlvWriter::u32(Tag tag, uint32_t v) {
   return bytes(tag, b, 4);
 }
 
+TlvWriter& TlvWriter::u64(Tag tag, uint64_t v) {
+  uint8_t b[8];
+  putU64(b, v);
+  return bytes(tag, b, 8);
+}
+
+TlvWriter& TlvWriter::i32(Tag tag, int32_t v) {
+  uint8_t b[4];
+  putI32(b, v);
+  return bytes(tag, b, 4);
+}
+
 bool TlvItem::asU8(uint8_t& out) const {
   if (len != 1) return false;
   out = value[0];
@@ -40,6 +52,18 @@ bool TlvItem::asU16(uint16_t& out) const {
 bool TlvItem::asU32(uint32_t& out) const {
   if (len != 4) return false;
   out = getU32(value);
+  return true;
+}
+
+bool TlvItem::asU64(uint64_t& out) const {
+  if (len != 8) return false;
+  out = getU64(value);
+  return true;
+}
+
+bool TlvItem::asI32(int32_t& out) const {
+  if (len != 4) return false;
+  out = getI32(value);
   return true;
 }
 

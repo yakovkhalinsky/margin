@@ -99,6 +99,7 @@ payloads (books) go over FILE (§8).
 | 0x53 | BIBLE_NOTE_SYNC_DONE | device → app | Bible note sync batch complete |
 | 0x54 | BIBLE_NOTE_PUSH | app → device | Bible notes edited on phone |
 | 0x55 | BIBLE_NOTE_ACK | device → app | acknowledges pushed Bible notes |
+| 0x70–0x91 | NOTIF_*, MSG_*, CALENDAR_*, TIME_* | both | Companion app sync (see [companion-v1.md](companion-v1.md)) |
 
 ## 5. Reassembly rules (receiver)
 

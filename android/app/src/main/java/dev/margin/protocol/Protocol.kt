@@ -36,7 +36,12 @@ enum class MsgType(val code: Int) {
     FILE_OFFER(0x30), FILE_ACCEPT(0x31), FILE_COMPLETE(0x32), FILE_RESULT(0x33), FILE_ABORT(0x34),
     SYNC_REQUEST(0x40), SYNC_RECORDS(0x41), SYNC_DONE(0x42), SYNC_ACK(0x43),
     BIBLE_CONTEXT(0x50), BIBLE_NOTE_SYNC_REQ(0x51), BIBLE_NOTE_RECORDS(0x52),
-    BIBLE_NOTE_SYNC_DONE(0x53), BIBLE_NOTE_PUSH(0x54), BIBLE_NOTE_ACK(0x55);
+    BIBLE_NOTE_SYNC_DONE(0x53), BIBLE_NOTE_PUSH(0x54), BIBLE_NOTE_ACK(0x55),
+    // Companion app messages (see docs/companion-v1.md)
+    NOTIF_PUSH(0x70), NOTIF_DISMISS(0x71), NOTIF_CLEAR(0x72), NOTIF_DISMISS_ACK(0x73),
+    MSG_THREAD_PUSH(0x74), MSG_MARK_READ(0x75), MSG_QUICK_REPLY(0x76), MSG_QUICK_REPLY_ACK(0x77),
+    CALENDAR_SYNC(0x80), CALENDAR_REQUEST(0x81),
+    TIME_SYNC(0x90), TIME_REQUEST(0x91);
 
     companion object {
         private val byCode = entries.associateBy { it.code }
@@ -68,9 +73,23 @@ object Tag {
     const val BIBLE_REF = 0x60; const val BIBLE_BOOK_NAME = 0x61; const val BIBLE_CHAPTER = 0x62
     const val BIBLE_VERSE = 0x63; const val BIBLE_NOTE_TYPE = 0x64; const val BIBLE_HIGHLIGHT_COLOR = 0x65
     const val BIBLE_NOTE_RECORD = 0x66
+    // Companion app tags (see docs/companion-v1.md)
+    const val NOTIF_ID = 0x70; const val NOTIF_KEY = 0x71; const val NOTIF_APP = 0x72
+    const val NOTIF_APP_NAME = 0x73; const val NOTIF_TITLE = 0x74; const val NOTIF_BODY = 0x75
+    const val NOTIF_TIMESTAMP = 0x76; const val NOTIF_ICON = 0x77
+    const val MSG_CONV_ID = 0x78; const val MSG_SENDER = 0x79; const val MSG_SENDER_KEY = 0x7A
+    const val MSG_TEXT = 0x7B; const val MSG_TIMESTAMP = 0x7C; const val MSG_IS_OUTGOING = 0x7D
+    const val MSG_RECORD = 0x7E; const val MSG_THREAD_TITLE = 0x7F
+    const val CAL_EVENT_ID = 0x80; const val CAL_TITLE = 0x81; const val CAL_START = 0x82
+    const val CAL_END = 0x83; const val CAL_LOCATION = 0x84; const val CAL_ALL_DAY = 0x85
+    const val CAL_RECORD = 0x86; const val QUICK_REPLY_OPT = 0x87; const val QUICK_REPLY_IDX = 0x88
+    const val TIME_UTC_MS = 0x90; const val TIME_TZ_OFFSET = 0x91; const val TIME_TZ_NAME = 0x92
 }
 
-object Feature { const val CHAT = 1; const val PASSAGE = 2; const val FILE_PUSH = 4; const val SYNC = 8 }
+object Feature {
+    const val CHAT = 1; const val PASSAGE = 2; const val FILE_PUSH = 4; const val SYNC = 8
+    const val COMPANION = 16  // notifications, messages, calendar
+}
 
 enum class Role(val code: Int) { USER(0), ASSISTANT(1), SYSTEM(2), TOOL(3) }
 enum class ThinkingState(val code: Int) { IDLE(0), THINKING(1), TOOL_RUNNING(2), STREAMING(3), ERROR(4) }
@@ -85,4 +104,9 @@ enum class BibleNoteType(val code: Int) { HIGHLIGHT(0), NOTE(1) }
 enum class BibleHighlightColor(val code: Int) {
     YELLOW(0), GREEN(1), BLUE(2), PINK(3);
     companion object { fun of(code: Int) = entries.firstOrNull { it.code == code } ?: YELLOW }
+}
+
+enum class NotifIcon(val code: Int) {
+    DEFAULT(0), MESSAGE(1), EMAIL(2), CALL(3), CALENDAR(4);
+    companion object { fun of(code: Int) = entries.firstOrNull { it.code == code } ?: DEFAULT }
 }
