@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>margin Web Flasher – Xteink X4 Pro</title>
+  <script type="module" src="https://unpkg.com/esp-web-tools@10/dist/web/install-button.js?module"></script>
+  <style>
+    :root {
+      --primary: #2563eb;
+      --primary-hover: #1d4ed8;
+      --secondary: #6b7280;
+      --secondary-hover: #4b5563;
+      --bg: #f9fafb;
+      --card-bg: #ffffff;
+      --text: #111827;
+      --text-muted: #6b7280;
+      --border: #e5e7eb;
+      --warning-bg: #fef3c7;
+      --warning-border: #f59e0b;
+      --warning-text: #92400e;
+      --danger-bg: #fee2e2;
+      --danger-border: #ef4444;
+      --danger-text: #991b1b;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      line-height: 1.6;
+      color: var(--text);
+      background: var(--bg);
+      margin: 0;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 40px;
+    }
+
+    h1 {
+      font-size: 2rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .subtitle {
+      color: var(--text-muted);
+      font-size: 1.1rem;
+    }
+
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 24px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+
+    .card h2 {
+      margin-top: 0;
+      font-size: 1.25rem;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .flash-buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+      margin-top: 20px;
+    }
+
+    .flash-option {
+      flex: 1;
+      min-width: 280px;
+      padding: 20px;
+      border: 2px solid var(--border);
+      border-radius: 8px;
+      text-align: center;
+    }
+
+    .flash-option.primary {
+      border-color: var(--primary);
+      background: linear-gradient(to bottom, #f0f7ff, #fff);
+    }
+
+    .flash-option h3 {
+      margin: 0 0 8px 0;
+      font-size: 1.1rem;
+    }
+
+    .flash-option p {
+      color: var(--text-muted);
+      font-size: 0.9rem;
+      margin: 0 0 16px 0;
+    }
+
+    esp-web-install-button {
+      display: block;
+    }
+
+    esp-web-install-button::part(button) {
+      padding: 12px 24px;
+      font-size: 1rem;
+      font-weight: 500;
+      border-radius: 6px;
+      cursor: pointer;
+      border: none;
+      transition: background 0.2s;
+    }
+
+    .flash-option.primary esp-web-install-button::part(button) {
+      background: var(--primary);
+      color: white;
+    }
+
+    .flash-option.primary esp-web-install-button::part(button):hover {
+      background: var(--primary-hover);
+    }
+
+    .flash-option.secondary esp-web-install-button::part(button) {
+      background: var(--secondary);
+      color: white;
+    }
+
+    .flash-option.secondary esp-web-install-button::part(button):hover {
+      background: var(--secondary-hover);
+    }
+
+    .warning {
+      background: var(--warning-bg);
+      border: 1px solid var(--warning-border);
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 20px;
+    }
+
+    .warning-title {
+      color: var(--warning-text);
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .warning ul {
+      margin: 0;
+      padding-left: 20px;
+      color: var(--warning-text);
+    }
+
+    .warning li {
+      margin-bottom: 4px;
+    }
+
+    .danger {
+      background: var(--danger-bg);
+      border: 1px solid var(--danger-border);
+      border-radius: 8px;
+      padding: 16px;
+    }
+
+    .danger-title {
+      color: var(--danger-text);
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .danger p {
+      color: var(--danger-text);
+      margin: 0;
+    }
+
+    .steps {
+      counter-reset: step;
+    }
+
+    .steps li {
+      position: relative;
+      padding-left: 40px;
+      margin-bottom: 16px;
+    }
+
+    .steps li::before {
+      counter-increment: step;
+      content: counter(step);
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 28px;
+      height: 28px;
+      background: var(--primary);
+      color: white;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.875rem;
+      font-weight: 600;
+    }
+
+    code {
+      background: #f1f5f9;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 0.9em;
+    }
+
+    pre {
+      background: #1e293b;
+      color: #e2e8f0;
+      padding: 16px;
+      border-radius: 8px;
+      overflow-x: auto;
+      font-size: 0.875rem;
+    }
+
+    a {
+      color: var(--primary);
+      text-decoration: none;
+    }
+
+    a:hover {
+      text-decoration: underline;
+    }
+
+    .browser-warning {
+      display: none;
+      background: var(--danger-bg);
+      border: 1px solid var(--danger-border);
+      padding: 16px;
+      border-radius: 8px;
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    .unsupported .browser-warning {
+      display: block;
+    }
+
+    .unsupported .flash-buttons {
+      display: none;
+    }
+
+    footer {
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 0.875rem;
+      margin-top: 40px;
+      padding-top: 20px;
+      border-top: 1px solid var(--border);
+    }
+
+    @media (max-width: 600px) {
+      .flash-option {
+        min-width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>📖 margin Web Flasher</h1>
+      <p class="subtitle">Custom firmware for the Xteink X4 Pro e-reader</p>
+    </header>
+
+    <div class="browser-warning">
+      <strong>⚠️ Unsupported Browser</strong>
+      <p>Web Serial requires a Chromium-based browser (Chrome, Edge, Opera) on desktop.<br>
+      iOS and mobile browsers are not supported.</p>
+    </div>
+
+    <div class="card">
+      <h2>🔌 Flash Firmware</h2>
+      
+      <div class="warning">
+        <div class="warning-title">⚠️ Before You Flash</div>
+        <ul>
+          <li><strong>Back up your flash first!</strong> Run: <code>esptool.py read_flash 0 0x1000000 backup.bin</code></li>
+          <li>Connect the <strong>pogo-pin USB dongle</strong> — the X4 Pro has no built-in USB port</li>
+          <li><strong>Hold the Power button</strong> during flashing (the bootloader doesn't latch power)</li>
+          <li>Bible text is stored on the <strong>SD card</strong>, not in firmware</li>
+        </ul>
+      </div>
+
+      <div class="flash-buttons">
+        <div class="flash-option primary">
+          <h3>Install margin</h3>
+          <p>margin firmware with Bible mode and chat features</p>
+          <esp-web-install-button manifest="manifest.json">
+            <button slot="activate">Install margin (latest)</button>
+            <span slot="unsupported">Use Chrome or Edge on desktop</span>
+            <span slot="not-allowed">HTTPS required</span>
+          </esp-web-install-button>
+        </div>
+
+        <div class="flash-option secondary">
+          <h3>Restore CrossPoint</h3>
+          <p>Official CrossPoint Reader firmware for X4 Pro</p>
+          <esp-web-install-button manifest="crosspoint-manifest.json">
+            <button slot="activate">Restore stock CrossPoint</button>
+            <span slot="unsupported">Use Chrome or Edge on desktop</span>
+            <span slot="not-allowed">HTTPS required</span>
+          </esp-web-install-button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>📱 Bootloader Mode</h2>
+      <p>If flashing fails, you may need to put the X4 Pro into bootloader/download mode:</p>
+      <ol class="steps">
+        <li>Power off the device completely</li>
+        <li>Connect the pogo-pin USB dongle</li>
+        <li>Hold the <strong>Boot button</strong> (if available) while connecting power</li>
+        <li>Release after 2 seconds — the device should appear as a serial port</li>
+        <li>If there's no dedicated Boot button, try holding <strong>Volume Down + Power</strong></li>
+      </ol>
+      <p>The device should enumerate as <code>/dev/ttyACM0</code> (Linux) or <code>COM3</code> (Windows).</p>
+    </div>
+
+    <div class="card">
+      <h2>📖 Setting Up Bible Mode</h2>
+      <p>The Bible text is stored on the SD card, not in the firmware. After flashing margin:</p>
+      <ol class="steps">
+        <li>Generate the Bible data:
+          <pre>python tools/bsb-converter.py --output ./bible-data/</pre>
+        </li>
+        <li>Copy the <code>margin/bible/</code> folder to your SD card root</li>
+        <li>Insert the SD card and open Bible mode from the menu</li>
+      </ol>
+      <p>See <a href="https://github.com/yakovkhalinsky/margin/blob/main/docs/bible-mode.md">docs/bible-mode.md</a> 
+         and <a href="https://github.com/yakovkhalinsky/margin/blob/main/tools/bsb-converter.py">tools/bsb-converter.py</a> for details.</p>
+    </div>
+
+    <div class="card">
+      <h2>🔧 Technical Details</h2>
+      <h3>Flash Layout (ESP32-S3, 16 MB)</h3>
+      <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem;">
+        <tr style="background: #f1f5f9;">
+          <th style="text-align: left; padding: 8px; border-bottom: 1px solid var(--border);">Component</th>
+          <th style="text-align: left; padding: 8px; border-bottom: 1px solid var(--border);">Offset</th>
+          <th style="text-align: left; padding: 8px; border-bottom: 1px solid var(--border);">Size</th>
+        </tr>
+        <tr>
+          <td style="padding: 8px; border-bottom: 1px solid var(--border);">Bootloader</td>
+          <td style="padding: 8px; border-bottom: 1px solid var(--border);"><code>0x0</code></td>
+          <td style="padding: 8px; border-bottom: 1px solid var(--border);">~24 KB</td>
+        </tr>
+        <tr>
+          <td style="padding: 8px; border-bottom: 1px solid var(--border);">Partition Table</td>
+          <td style="padding: 8px; border-bottom: 1px solid var(--border);"><code>0x8000</code></td>
+          <td style="padding: 8px; border-bottom: 1px solid var(--border);">3 KB</td>
+        </tr>
+        <tr>
+          <td style="padding: 8px; border-bottom: 1px solid var(--border);">OTA Data</td>
+          <td style="padding: 8px; border-bottom: 1px solid var(--border);"><code>0xe000</code></td>
+          <td style="padding: 8px; border-bottom: 1px solid var(--border);">8 KB</td>
+        </tr>
+        <tr>
+          <td style="padding: 8px; border-bottom: 1px solid var(--border);">Application (app0)</td>
+          <td style="padding: 8px; border-bottom: 1px solid var(--border);"><code>0x10000</code></td>
+          <td style="padding: 8px; border-bottom: 1px solid var(--border);">~6.25 MB</td>
+        </tr>
+        <tr>
+          <td style="padding: 8px; border-bottom: 1px solid var(--border);">Application (app1/OTA)</td>
+          <td style="padding: 8px; border-bottom: 1px solid var(--border);"><code>0x650000</code></td>
+          <td style="padding: 8px; border-bottom: 1px solid var(--border);">~6.25 MB</td>
+        </tr>
+        <tr>
+          <td style="padding: 8px; border-bottom: 1px solid var(--border);">SPIFFS</td>
+          <td style="padding: 8px; border-bottom: 1px solid var(--border);"><code>0xc90000</code></td>
+          <td style="padding: 8px; border-bottom: 1px solid var(--border);">~3.4 MB</td>
+        </tr>
+        <tr>
+          <td style="padding: 8px;">Coredump</td>
+          <td style="padding: 8px;"><code>0xff0000</code></td>
+          <td style="padding: 8px;">64 KB</td>
+        </tr>
+      </table>
+      <p style="margin-top: 16px; font-size: 0.875rem; color: var(--text-muted);">
+        Offsets verified against 
+        <a href="https://github.com/crosspoint-reader/crosspoint-reader/blob/develop/partitions.csv">CrossPoint's partitions.csv</a>
+        and <a href="https://docs.espressif.com/projects/esp-idf/en/latest/esp32s3/api-guides/partition-tables.html">ESP-IDF documentation</a>.
+        The merged binary includes bootloader, partition table, and application at their correct offsets.
+      </p>
+    </div>
+
+    <div class="card">
+      <div class="danger">
+        <div class="danger-title">⚠️ Risk Warning</div>
+        <p>Flashing third-party firmware may void your warranty. Always back up before flashing.
+        If something goes wrong, you can restore your backup with:<br>
+        <code>esptool.py write_flash 0 backup.bin</code></p>
+      </div>
+    </div>
+
+    <footer>
+      <p>
+        <a href="https://github.com/yakovkhalinsky/margin">margin on GitHub</a> · 
+        <a href="https://github.com/crosspoint-reader/crosspoint-reader">CrossPoint Reader</a> · 
+        <a href="https://esphome.github.io/esp-web-tools/">ESP Web Tools</a>
+      </p>
+      <p>margin is MIT licensed. CrossPoint Reader is MIT licensed.</p>
+    </footer>
+  </div>
+
+  <script>
+    // Check for Web Serial support
+    if (!('serial' in navigator)) {
+      document.body.classList.add('unsupported');
+    }
+  </script>
+</body>
+</html>

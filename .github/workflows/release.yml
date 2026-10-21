@@ -1,0 +1,237 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag (e.g., v0.1.0)'
+        required: true
+        default: 'v0.1.0'
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "release"
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Get version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION="${GITHUB_REF#refs/tags/}"
+          fi
+          VERSION="${VERSION#v}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Building version: $VERSION"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install PlatformIO and esptool
+        run: |
+          pip install platformio esptool
+
+      - name: Setup firmware environment
+        run: |
+          cd firmware
+          ./scripts/setup.sh
+
+      - name: Build margin firmware
+        env:
+          MARGIN_VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          cd firmware/upstream/crosspoint-reader
+          pio run -e margin_x4pro_release
+
+      - name: Locate build artifacts
+        id: artifacts
+        run: |
+          BUILD_DIR="firmware/upstream/crosspoint-reader/.pio/build/margin_x4pro_release"
+          
+          # List what we have
+          echo "Build directory contents:"
+          ls -la "$BUILD_DIR/"
+          
+          # Find bootloader (PlatformIO puts it in different places)
+          if [ -f "$BUILD_DIR/bootloader.bin" ]; then
+            BOOTLOADER="$BUILD_DIR/bootloader.bin"
+          else
+            # Try to find in the framework packages
+            BOOTLOADER=$(find ~/.platformio/packages -name "bootloader.bin" -path "*esp32s3*" | head -1)
+          fi
+          
+          # Partition table
+          PARTITIONS="$BUILD_DIR/partitions.bin"
+          
+          # Application
+          APP="$BUILD_DIR/firmware.bin"
+          
+          # boot_app0.bin (OTA selector)
+          BOOT_APP0=$(find ~/.platformio/packages -name "boot_app0.bin" | head -1)
+          
+          echo "bootloader=$BOOTLOADER" >> "$GITHUB_OUTPUT"
+          echo "partitions=$PARTITIONS" >> "$GITHUB_OUTPUT"
+          echo "boot_app0=$BOOT_APP0" >> "$GITHUB_OUTPUT"
+          echo "app=$APP" >> "$GITHUB_OUTPUT"
+          
+          echo "Bootloader: $BOOTLOADER"
+          echo "Partitions: $PARTITIONS"
+          echo "Boot app0: $BOOT_APP0"
+          echo "App: $APP"
+
+      - name: Create merged firmware binary
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          BUILD_DIR="firmware/upstream/crosspoint-reader/.pio/build/margin_x4pro_release"
+          
+          # Create output directory
+          mkdir -p dist
+          
+          # Merge all parts into a single binary
+          # ESP32-S3 offsets: bootloader@0x0, partitions@0x8000, boot_app0@0xe000, app@0x10000
+          esptool.py --chip esp32s3 merge_bin \
+            -o "dist/margin-x4pro-merged.bin" \
+            --flash_mode dio \
+            --flash_freq 80m \
+            --flash_size 16MB \
+            0x0 "$BUILD_DIR/bootloader.bin" \
+            0x8000 "$BUILD_DIR/partitions.bin" \
+            0xe000 ~/.platformio/packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin \
+            0x10000 "$BUILD_DIR/firmware.bin"
+          
+          # Also copy the app-only binary for those who just want to update
+          cp "$BUILD_DIR/firmware.bin" "dist/margin-x4pro-app.bin"
+          
+          echo "Created merged binary:"
+          ls -la dist/
+
+      - name: Update manifest with version
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          mkdir -p dist/flasher
+          cp flasher/index.html dist/flasher/
+          cp flasher/crosspoint-manifest.json dist/flasher/
+          
+          # Create manifest pointing to this release
+          cat > dist/flasher/manifest.json << 'EOF'
+{
+  "name": "margin",
+  "version": "$VERSION",
+  "new_install_prompt_erase": true,
+  "builds": [
+    {
+      "chipFamily": "ESP32-S3",
+      "parts": [
+        {
+          "path": "https://github.com/REPO/releases/download/vVERSION/margin-x4pro-merged.bin",
+          "offset": 0
+        }
+      ]
+    }
+  ]
+}
+EOF
+          # Replace placeholders
+          sed -i "s/\$VERSION/$VERSION/g" dist/flasher/manifest.json
+          sed -i "s|REPO|${{ github.repository }}|g" dist/flasher/manifest.json
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: firmware
+          path: dist/
+          retention-days: 7
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: firmware
+          path: dist/
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.build.outputs.version }}
+        run: |
+          TAG="v$VERSION"
+          
+          # Check if release exists (for workflow_dispatch)
+          if ! gh release view "$TAG" --repo "${{ github.repository }}" > /dev/null 2>&1; then
+            gh release create "$TAG" \
+              --repo "${{ github.repository }}" \
+              --title "margin $VERSION" \
+              --notes "## margin $VERSION for Xteink X4 Pro
+
+          ### Downloads
+          - **margin-x4pro-merged.bin**: Full firmware (bootloader + app) - use with the web flasher
+          - **margin-x4pro-app.bin**: App only (for updates when bootloader hasn't changed)
+
+          ### Web Flasher
+          Flash directly from your browser: https://${{ github.repository_owner }}.github.io/margin/
+
+          ### Flash Offsets (for manual flashing)
+          - Merged binary: \`esptool.py write_flash 0x0 margin-x4pro-merged.bin\`
+          - App only: \`esptool.py write_flash 0x10000 margin-x4pro-app.bin\`
+
+          ### What's New
+          See [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md) for details.
+          "
+          fi
+          
+          # Upload assets
+          gh release upload "$TAG" \
+            dist/margin-x4pro-merged.bin \
+            dist/margin-x4pro-app.bin \
+            --repo "${{ github.repository }}" \
+            --clobber
+
+  deploy-pages:
+    needs: [build, release]
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: firmware
+          path: dist/
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload to Pages
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist/flasher/
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

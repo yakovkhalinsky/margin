@@ -10,7 +10,14 @@ your agent in the margins of what you read.
 > See [docs/ROADMAP.md](docs/ROADMAP.md).
 
 Inspired by Snail OS, which is closed-source and cannot be used as a base. margin builds on the
-open-source [PapyriX](https://github.com/bigbag/papyrix-reader) reader firmware instead.
+open-source [CrossPoint Reader](https://github.com/crosspoint-reader/crosspoint-reader) firmware.
+
+## Web Flasher
+
+**Flash margin directly from your browser:** [yakovkhalinsky.github.io/margin/](https://yakovkhalinsky.github.io/margin/)
+
+The web flasher uses [ESP Web Tools](https://esphome.github.io/esp-web-tools/) and works in
+Chrome/Edge on desktop. It can install margin or restore the official CrossPoint firmware.
 
 ## Features (planned)
 
@@ -72,26 +79,43 @@ make -C firmware/test
 # Firmware: device build (PlatformIO)
 pip install platformio
 firmware/scripts/setup.sh
-cd firmware/upstream/papyrix-reader && pio run -e margin_x4pro
+cd firmware/upstream/crosspoint-reader && pio run -e margin_x4pro
 # flash: pio run -e margin_x4pro --target upload   (backup first, hold Power)
 
 # Android: open android/ in Android Studio (see android/README.md)
 ```
 
+### Reverting to Stock CrossPoint
+
+If you want to go back to the official CrossPoint Reader firmware:
+
+1. **Web Flasher** (easiest): Visit the [margin web flasher](https://yakovkhalinsky.github.io/margin/)
+   and click "Restore stock CrossPoint"
+
+2. **CrossPoint's web flasher**: Go to [crosspointreader.com/#flash-tools](https://crosspointreader.com/#flash-tools),
+   select X4 Pro, and flash the official release
+
+3. **Command line**: Download the latest CrossPoint X4 Pro binary from
+   [their releases](https://github.com/crosspoint-reader/crosspoint-reader/releases) and flash:
+   ```bash
+   esptool.py --chip esp32s3 --port /dev/ttyACM0 write_flash 0x10000 crosspoint-*-x4pro.bin
+   ```
+
 ## Repository layout
 
 ```
 docs/       ARCHITECTURE, BLE_PROTOCOL, HARDWARE, ROADMAP, UPSTREAM (base + licences)
-firmware/   PapyriX submodule, hook patches, margin libraries, host tests  → firmware/README.md
+firmware/   CrossPoint submodule, margin libraries, host tests             → firmware/README.md
+flasher/    Web flasher site (ESP Web Tools, deployed to GitHub Pages)
 android/    Kotlin + Jetpack Compose companion app                         → android/README.md
 ```
 
 ## Base and licence
 
-- Base: PapyriX as a **pinned git submodule** plus a tiny patch series, not a long-lived fork. The
-  reasons, and the alternative ([CrossPoint Reader](https://github.com/crosspoint-reader/crosspoint-reader)),
-  are in [docs/UPSTREAM.md](docs/UPSTREAM.md).
-- margin's own code is **MIT** ([LICENSE](LICENSE)). PapyriX is MIT too, but it bundles some
+- Base: [CrossPoint Reader](https://github.com/crosspoint-reader/crosspoint-reader) as a **pinned
+  git submodule** with margin's libraries added via PlatformIO's `lib_extra_dirs`. CrossPoint is
+  the actively maintained open-source firmware for the X4 Pro. See [docs/UPSTREAM.md](docs/UPSTREAM.md).
+- margin's own code is **MIT** ([LICENSE](LICENSE)). CrossPoint is also MIT, but it bundles some
   **GPL-3.0-or-later** files that end up in the firmware image, so **distributed firmware binaries
   must follow GPL-3.0 terms** (ship the complete source). Source-level, margin stays MIT. See
   [NOTICE](NOTICE) and [docs/UPSTREAM.md](docs/UPSTREAM.md#licences).
