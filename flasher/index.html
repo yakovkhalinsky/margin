@@ -299,20 +299,24 @@
         </ul>
       </div>
 
+      <div class="danger" style="margin-bottom: 20px;">
+        <div class="danger-title">🚫 margin v0.1.0 Causes Bootloop - DO NOT INSTALL</div>
+        <p>The v0.1.0 release causes devices to bootloop. Installation is disabled until the issue is fixed.
+        If your device is bootlooping, use "Restore stock CrossPoint" below to recover.</p>
+      </div>
+
       <div class="flash-buttons">
-        <div class="flash-option primary">
+        <div class="flash-option" style="opacity: 0.5; pointer-events: none;">
           <h3>Install margin</h3>
-          <p>margin firmware with Bible mode and chat features</p>
-          <esp-web-install-button manifest="manifest.json">
-            <button slot="activate">Install margin (latest)</button>
-            <span slot="unsupported">Use Chrome or Edge on desktop</span>
-            <span slot="not-allowed">HTTPS required</span>
-          </esp-web-install-button>
+          <p style="color: var(--danger-text);">⚠️ DISABLED: v0.1.0 bootloops. Do not install.</p>
+          <button disabled style="background: #ccc; color: #666; padding: 12px 24px; border: none; border-radius: 6px; cursor: not-allowed;">
+            Installation Disabled
+          </button>
         </div>
 
-        <div class="flash-option secondary">
-          <h3>Restore CrossPoint</h3>
-          <p>Official CrossPoint Reader firmware for X4 Pro</p>
+        <div class="flash-option primary">
+          <h3>Restore CrossPoint (Full)</h3>
+          <p>Official CrossPoint Reader firmware for X4 Pro - full flash restore</p>
           <esp-web-install-button manifest="crosspoint-manifest.json">
             <button slot="activate">Restore stock CrossPoint</button>
             <span slot="unsupported">Use Chrome or Edge on desktop</span>

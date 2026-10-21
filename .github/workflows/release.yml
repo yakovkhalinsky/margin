@@ -62,114 +62,152 @@ jobs:
           cd firmware/upstream/crosspoint-reader
           pio run -e margin_x4pro_release
 
+      - name: Build stock CrossPoint x4pro (for restore image)
+        run: |
+          cd firmware/upstream/crosspoint-reader
+          pio run -e x4pro
+
       - name: Verify build artifacts exist
         id: artifacts
         run: |
-          BUILD_DIR="firmware/upstream/crosspoint-reader/.pio/build/margin_x4pro_release"
+          MARGIN_DIR="firmware/upstream/crosspoint-reader/.pio/build/margin_x4pro_release"
+          STOCK_DIR="firmware/upstream/crosspoint-reader/.pio/build/x4pro"
           
-          echo "Build directory contents:"
-          ls -la "$BUILD_DIR/"
+          echo "=== margin build ==="
+          ls -la "$MARGIN_DIR/"
           
-          # Verify required files exist
-          test -f "$BUILD_DIR/bootloader.bin" || { echo "ERROR: bootloader.bin not found"; exit 1; }
-          test -f "$BUILD_DIR/partitions.bin" || { echo "ERROR: partitions.bin not found"; exit 1; }
-          test -f "$BUILD_DIR/firmware.bin" || { echo "ERROR: firmware.bin not found"; exit 1; }
+          echo "=== stock x4pro build ==="
+          ls -la "$STOCK_DIR/"
           
-          # Find boot_app0.bin in PlatformIO packages
+          # Verify margin files
+          test -f "$MARGIN_DIR/bootloader.bin" || { echo "ERROR: margin bootloader.bin not found"; exit 1; }
+          test -f "$MARGIN_DIR/partitions.bin" || { echo "ERROR: margin partitions.bin not found"; exit 1; }
+          test -f "$MARGIN_DIR/firmware.bin" || { echo "ERROR: margin firmware.bin not found"; exit 1; }
+          
+          # Verify stock x4pro has factory.bin (PlatformIO creates this automatically)
+          test -f "$STOCK_DIR/firmware.factory.bin" || { echo "ERROR: stock factory.bin not found"; exit 1; }
+          
+          # Find boot_app0.bin
           BOOT_APP0=$(find ~/.platformio/packages/framework-arduinoespressif32 -name "boot_app0.bin" -path "*/partitions/*" | head -1)
-          if [ -z "$BOOT_APP0" ] || [ ! -f "$BOOT_APP0" ]; then
-            echo "ERROR: boot_app0.bin not found in PlatformIO packages"
-            find ~/.platformio/packages -name "boot_app0.bin" 2>/dev/null || true
-            exit 1
+          echo "boot_app0=$BOOT_APP0" >> "$GITHUB_OUTPUT"
+          echo "Boot app0: $BOOT_APP0"
+
+      - name: Compare flash settings with official CrossPoint
+        run: |
+          echo "=== Comparing flash settings ==="
+          
+          # Download official CrossPoint X4 Pro binary
+          curl -fsSL -o /tmp/official-crosspoint-x4pro.bin \
+            "https://github.com/crosspoint-reader/crosspoint-reader/releases/latest/download/firmware-x4pro.bin"
+          
+          MARGIN_FW="firmware/upstream/crosspoint-reader/.pio/build/margin_x4pro_release/firmware.bin"
+          MARGIN_BL="firmware/upstream/crosspoint-reader/.pio/build/margin_x4pro_release/bootloader.bin"
+          STOCK_FW="firmware/upstream/crosspoint-reader/.pio/build/x4pro/firmware.bin"
+          
+          echo "--- Official CrossPoint release ---"
+          esptool image-info /tmp/official-crosspoint-x4pro.bin 2>&1 | grep -E "Flash size|Flash freq|Flash mode|Entry point"
+          
+          echo "--- margin firmware ---"
+          esptool image-info "$MARGIN_FW" 2>&1 | grep -E "Flash size|Flash freq|Flash mode|Entry point"
+          
+          echo "--- margin bootloader ---"
+          esptool image-info "$MARGIN_BL" 2>&1 | grep -E "Flash size|Flash freq|Flash mode|Entry point"
+          
+          echo "--- stock x4pro firmware (our build) ---"
+          esptool image-info "$STOCK_FW" 2>&1 | grep -E "Flash size|Flash freq|Flash mode|Entry point"
+          
+          # Extract and compare flash settings
+          OFFICIAL_MODE=$(esptool image-info /tmp/official-crosspoint-x4pro.bin 2>&1 | grep "Flash mode:" | awk '{print $3}')
+          OFFICIAL_FREQ=$(esptool image-info /tmp/official-crosspoint-x4pro.bin 2>&1 | grep "Flash freq:" | awk '{print $3}')
+          OFFICIAL_SIZE=$(esptool image-info /tmp/official-crosspoint-x4pro.bin 2>&1 | grep "Flash size:" | awk '{print $3}')
+          
+          MARGIN_MODE=$(esptool image-info "$MARGIN_FW" 2>&1 | grep "Flash mode:" | awk '{print $3}')
+          MARGIN_FREQ=$(esptool image-info "$MARGIN_FW" 2>&1 | grep "Flash freq:" | awk '{print $3}')
+          MARGIN_SIZE=$(esptool image-info "$MARGIN_FW" 2>&1 | grep "Flash size:" | awk '{print $3}')
+          
+          echo ""
+          echo "=== Flash Settings Comparison ==="
+          echo "Official CrossPoint: mode=$OFFICIAL_MODE freq=$OFFICIAL_FREQ size=$OFFICIAL_SIZE"
+          echo "margin firmware:     mode=$MARGIN_MODE freq=$MARGIN_FREQ size=$MARGIN_SIZE"
+          
+          # Check for mismatches
+          MISMATCH=0
+          if [ "$OFFICIAL_MODE" != "$MARGIN_MODE" ]; then
+            echo "WARNING: Flash mode mismatch! Official=$OFFICIAL_MODE, margin=$MARGIN_MODE"
+            MISMATCH=1
+          fi
+          if [ "$OFFICIAL_FREQ" != "$MARGIN_FREQ" ]; then
+            echo "WARNING: Flash freq mismatch! Official=$OFFICIAL_FREQ, margin=$MARGIN_FREQ"
+            MISMATCH=1
+          fi
+          if [ "$OFFICIAL_SIZE" != "$MARGIN_SIZE" ]; then
+            echo "WARNING: Flash size mismatch! Official=$OFFICIAL_SIZE, margin=$MARGIN_SIZE"
+            MISMATCH=1
           fi
           
-          echo "boot_app0=$BOOT_APP0" >> "$GITHUB_OUTPUT"
-          echo "All required files found:"
-          echo "  Bootloader: $BUILD_DIR/bootloader.bin"
-          echo "  Partitions: $BUILD_DIR/partitions.bin"
-          echo "  Boot app0:  $BOOT_APP0"
-          echo "  Firmware:   $BUILD_DIR/firmware.bin"
+          if [ "$MISMATCH" -eq 0 ]; then
+            echo "✓ All flash settings match official CrossPoint"
+          fi
 
-      - name: Create merged firmware binary
+      - name: Create merged firmware binaries
         env:
           BOOT_APP0: ${{ steps.artifacts.outputs.boot_app0 }}
         run: |
-          BUILD_DIR="firmware/upstream/crosspoint-reader/.pio/build/margin_x4pro_release"
           mkdir -p dist
           
-          # ESP32-S3 flash offsets (verified against CrossPoint partitions.csv):
-          # - Bootloader: 0x0 (ESP32-S3 uses 0x0, not 0x1000 like ESP32)
-          # - Partition table: 0x8000
-          # - OTA data (boot_app0): 0xe000
-          # - Application: 0x10000
-          esptool --chip esp32s3 merge-bin \
-            -o "dist/margin-x4pro-merged.bin" \
-            --flash-mode dio \
-            --flash-freq 80m \
-            --flash-size 16MB \
-            0x0 "$BUILD_DIR/bootloader.bin" \
-            0x8000 "$BUILD_DIR/partitions.bin" \
-            0xe000 "$BOOT_APP0" \
-            0x10000 "$BUILD_DIR/firmware.bin"
+          MARGIN_DIR="firmware/upstream/crosspoint-reader/.pio/build/margin_x4pro_release"
+          STOCK_DIR="firmware/upstream/crosspoint-reader/.pio/build/x4pro"
           
-          cp "$BUILD_DIR/firmware.bin" "dist/margin-x4pro-app.bin"
+          # margin merged binary (DISABLED - causes bootloop)
+          # esptool --chip esp32s3 merge-bin ...
+          
+          # Copy the stock x4pro factory.bin for CrossPoint restore
+          # This is created by PlatformIO with correct offsets
+          cp "$STOCK_DIR/firmware.factory.bin" "dist/crosspoint-x4pro-full.bin"
+          
+          # Also keep app-only binaries
+          cp "$MARGIN_DIR/firmware.bin" "dist/margin-x4pro-app.bin"
           
           echo "Created binaries:"
           ls -la dist/
 
-      - name: Download CrossPoint X4 Pro firmware
-        run: |
-          mkdir -p dist/flasher/firmware
-          
-          # Download latest CrossPoint X4 Pro release for "restore stock" option
-          # CrossPoint is MIT licensed, redistribution allowed
-          curl -fsSL -o dist/flasher/firmware/crosspoint-x4pro.bin \
-            "https://github.com/crosspoint-reader/crosspoint-reader/releases/latest/download/firmware-x4pro.bin"
-          
-          echo "Downloaded CrossPoint firmware:"
-          ls -la dist/flasher/firmware/
-
-      - name: Prepare flasher site with bundled firmware
+      - name: Prepare flasher site (margin DISABLED)
         env:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
-          # Copy margin firmware to flasher directory
-          cp dist/margin-x4pro-merged.bin dist/flasher/firmware/
+          mkdir -p dist/flasher/firmware
           
-          # Copy static flasher files
+          # Copy CrossPoint full restore image
+          cp dist/crosspoint-x4pro-full.bin dist/flasher/firmware/
+          
+          # Copy static flasher files (with margin disabled)
           cp flasher/index.html dist/flasher/
           
-          # Generate margin manifest with relative path (avoids CORS issues)
+          # Generate DISABLED margin manifest
           python3 -c "
           import json
           manifest = {
-              'name': 'margin',
-              'version': '$VERSION',
-              'new_install_prompt_erase': True,
-              'builds': [{
-                  'chipFamily': 'ESP32-S3',
-                  'parts': [{
-                      'path': 'firmware/margin-x4pro-merged.bin',
-                      'offset': 0
-                  }]
-              }]
+              'name': 'margin - DISABLED (v0.1.0 bootloops)',
+              'version': '$VERSION-DISABLED',
+              'new_install_prompt_erase': False,
+              'builds': []
           }
           with open('dist/flasher/manifest.json', 'w') as f:
               json.dump(manifest, f, indent=2)
           "
           
-          # Generate CrossPoint manifest with relative path
+          # Generate CrossPoint FULL restore manifest
           python3 -c "
           import json
           manifest = {
-              'name': 'CrossPoint Reader',
+              'name': 'CrossPoint Reader (Full Restore)',
               'version': 'latest',
-              'new_install_prompt_erase': False,
+              'new_install_prompt_erase': True,
               'builds': [{
                   'chipFamily': 'ESP32-S3',
                   'parts': [{
-                      'path': 'firmware/crosspoint-x4pro.bin',
-                      'offset': 65536
+                      'path': 'firmware/crosspoint-x4pro-full.bin',
+                      'offset': 0
                   }]
               }]
           }
@@ -179,11 +217,6 @@ jobs:
           
           echo "Flasher site contents:"
           find dist/flasher -type f -exec ls -la {} \;
-          
-          echo "Manifest files:"
-          cat dist/flasher/manifest.json
-          echo ""
-          cat dist/flasher/crosspoint-manifest.json
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
@@ -214,36 +247,29 @@ jobs:
           if ! gh release view "$TAG" --repo "${{ github.repository }}" > /dev/null 2>&1; then
             gh release create "$TAG" \
               --repo "${{ github.repository }}" \
-              --title "margin $VERSION" \
-              --notes "## margin $VERSION for Xteink X4 Pro
+              --title "margin $VERSION - BOOTLOOP WARNING" \
+              --notes "## ⚠️ WARNING: v0.1.0 Causes Bootloop - DO NOT INSTALL
 
-          ### Downloads
-          - **margin-x4pro-merged.bin**: Full firmware (bootloader + partitions + app) - use with the web flasher
-          - **margin-x4pro-app.bin**: App only at 0x10000 (for updates when bootloader hasn't changed)
+          **The v0.1.0 merged firmware causes devices to bootloop.** Installation is disabled in the web flasher.
 
-          ### Web Flasher
-          Flash directly from your browser: https://yakov.khalinsky.com/margin/
+          If your device is bootlooping, use the web flasher to restore stock CrossPoint:
+          https://yakov.khalinsky.com/margin/
 
-          > **Note**: WebSerial requires HTTPS. If the flasher doesn't work, ensure 'Enforce HTTPS' is enabled in GitHub Pages settings.
+          ### Investigation
+          - Flash settings (mode/freq/size) match official CrossPoint ✓
+          - Bootloader and partition table are identical to stock ✓
+          - Root cause under investigation
 
-          ### Flash Offsets (for manual flashing)
-          \`\`\`bash
-          # Merged binary (recommended):
-          esptool.py --chip esp32s3 write_flash 0x0 margin-x4pro-merged.bin
-
-          # App only:
-          esptool.py --chip esp32s3 write_flash 0x10000 margin-x4pro-app.bin
-          \`\`\`
-
-          ### What's New
-          See the [commit history](https://github.com/${{ github.repository }}/commits/main) for details.
+          ### Assets (for debugging only)
+          - **margin-x4pro-app.bin**: App only (do NOT flash without working bootloader)
+          - **crosspoint-x4pro-full.bin**: Full CrossPoint restore image
           "
           fi
           
           # Upload assets
           gh release upload "$TAG" \
-            dist/margin-x4pro-merged.bin \
             dist/margin-x4pro-app.bin \
+            dist/crosspoint-x4pro-full.bin \
             --repo "${{ github.repository }}" \
             --clobber
 
