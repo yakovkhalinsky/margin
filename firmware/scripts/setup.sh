@@ -2,18 +2,21 @@
 # Prepare the CrossPoint Reader submodule for a margin build:
 #   1. Initialize and update the submodule
 #   2. Copy margin source files into the CrossPoint tree
-#   3. Apply margin's hook patches
-#   4. Link platformio.margin.ini as platformio.local.ini
+#   3. Apply margin branding overlay (od3sa cyber bear logo)
+#   4. Apply margin's hook patches
+#   5. Link platformio.margin.ini as platformio.local.ini
 # Idempotent: re-running resets the submodule and re-applies changes.
 set -euo pipefail
 
 FW="$(cd "$(dirname "$0")/.." && pwd)"
 ROOT="$(cd "$FW/.." && pwd)"
 UP="$FW/upstream/crosspoint-reader"
+BRANDING="$FW/branding"
 
 echo "=== margin firmware setup ==="
 echo "Firmware dir: $FW"
 echo "CrossPoint dir: $UP"
+echo "Branding dir: $BRANDING"
 echo ""
 
 # Initialize submodule
@@ -40,8 +43,36 @@ ln -snf "$FW/lib/MarginBible/src" "$UP/lib/MarginBible/src" 2>/dev/null || \
     cp -r "$FW/lib/MarginBible/src" "$UP/lib/MarginBible/"
 cp "$FW/lib/MarginBible/library.json" "$UP/lib/MarginBible/"
 
+# Apply margin branding overlay (od3sa cyber bear logo)
+echo "5. Applying margin branding..."
+BRANDING_GEN="$BRANDING/generated"
+if [ -d "$BRANDING_GEN" ]; then
+    # Generate branding if not already done
+    if [ ! -f "$BRANDING_GEN/Logo120.h" ] && [ -f "$BRANDING/generate_branding.py" ]; then
+        echo "   Generating branding assets..."
+        python3 "$BRANDING/generate_branding.py" >/dev/null 2>&1 || {
+            echo "   Warning: Could not generate branding assets (missing dependencies?)"
+            echo "   Install with: pip install Pillow cairosvg"
+        }
+    fi
+    
+    # Replace Logo120.h for boot splash and sleep screen
+    if [ -f "$BRANDING_GEN/Logo120.h" ]; then
+        cp "$BRANDING_GEN/Logo120.h" "$UP/src/images/Logo120.h"
+        echo "   Replaced Logo120.h (boot/sleep screen logo)"
+    fi
+    
+    # Replace web UI favicon/icon
+    if [ -f "$BRANDING_GEN/margin-icon.svg" ]; then
+        cp "$BRANDING_GEN/margin-icon.svg" "$UP/src/network/html/assets/crosspoint-icon.svg"
+        echo "   Replaced crosspoint-icon.svg (web UI favicon)"
+    fi
+else
+    echo "   Warning: Branding directory not found, skipping branding overlay"
+fi
+
 # Apply margin integration
-echo "5. Integrating margin into CrossPoint..."
+echo "6. Integrating margin into CrossPoint..."
 AM_CPP="$UP/src/activities/ActivityManager.cpp"
 AM_H="$UP/src/activities/ActivityManager.h"
 HOME_CPP="$UP/src/activities/home/HomeActivity.cpp"
@@ -90,7 +121,7 @@ if ! grep -q "MARGIN_ENABLE_BIBLE" "$HOME_CPP" 2>/dev/null; then
 fi
 
 # Link the margin config
-echo "6. Linking platformio.margin.ini..."
+echo "7. Linking platformio.margin.ini..."
 ln -sf "$FW/platformio.margin.ini" "$UP/platformio.local.ini"
 
 # Add generated files to exclude (handle submodule .git gitfile)
