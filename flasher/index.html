@@ -301,8 +301,13 @@
 
       <div class="danger" style="margin-bottom: 20px;">
         <div class="danger-title">🚫 margin v0.1.0 Causes Bootloop - DO NOT INSTALL</div>
-        <p>The v0.1.0 release causes devices to bootloop. Installation is disabled until the issue is fixed.
-        If your device is bootlooping, use "Restore stock CrossPoint" below to recover.</p>
+        <p>The v0.1.0 release caused a device to bootloop. <strong>Root cause:</strong> ESP Web Tools failed to 
+        write the bootloader area (0x0-0x10000) when flashing a merged binary with full-chip erase on ESP32-S3 
+        native USB. The flash was erased but the early blocks (bootloader, partition table) were left blank.</p>
+        <p style="margin-top: 8px;">Installation is disabled until the fix is verified. If your device is bootlooping, 
+        use "Restore stock CrossPoint" below to recover, or see 
+        <a href="https://github.com/yakovkhalinsky/margin/blob/main/docs/recovery.md" style="color: var(--danger-text);">docs/recovery.md</a> 
+        for manual esptool recovery.</p>
       </div>
 
       <div class="flash-buttons">
@@ -316,7 +321,7 @@
 
         <div class="flash-option primary">
           <h3>Restore CrossPoint (Full)</h3>
-          <p>Official CrossPoint Reader firmware for X4 Pro - full flash restore</p>
+          <p>Official CrossPoint Reader firmware for X4 Pro - writes bootloader, partitions, and app separately</p>
           <esp-web-install-button manifest="crosspoint-manifest.json">
             <button slot="activate">Restore stock CrossPoint</button>
             <span slot="unsupported">Use Chrome or Edge on desktop</span>
@@ -402,7 +407,12 @@
         Offsets verified against 
         <a href="https://github.com/crosspoint-reader/crosspoint-reader/blob/develop/partitions.csv">CrossPoint's partitions.csv</a>
         and <a href="https://docs.espressif.com/projects/esp-idf/en/latest/esp32s3/api-guides/partition-tables.html">ESP-IDF documentation</a>.
-        The merged binary includes bootloader, partition table, and application at their correct offsets.
+      </p>
+      <p style="margin-top: 8px; font-size: 0.875rem; color: var(--text-muted);">
+        <strong>Note:</strong> The restore flasher writes each component separately (bootloader, partitions, boot_app0, app) 
+        instead of using a merged binary. This avoids an issue with ESP32-S3 native USB where large merged binary writes 
+        can fail to write early flash regions. See <a href="https://github.com/yakovkhalinsky/margin/blob/main/docs/recovery.md">docs/recovery.md</a> 
+        for technical details.
       </p>
     </div>
 
