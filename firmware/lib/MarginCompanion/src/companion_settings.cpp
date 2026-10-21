@@ -19,7 +19,7 @@ SettingsManager& settings() {
 bool SettingsManager::load() {
   Preferences prefs;
   if (!prefs.begin(PREFS_NS, true)) {
-    LOG_WRN(TAG, "Failed to open preferences for reading");
+    LOG_INF(TAG, "Failed to open preferences for reading");
     return false;
   }
 

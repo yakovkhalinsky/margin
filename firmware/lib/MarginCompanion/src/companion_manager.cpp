@@ -20,7 +20,7 @@ bool CompanionManager::init() {
   LOG_INF(TAG, "Initializing companion manager...");
 
   if (!settings().load()) {
-    LOG_WRN(TAG, "Could not load settings, using defaults (BLE off)");
+    LOG_INF(TAG, "Could not load settings, using defaults (BLE off)");
   }
 
   if (!store().init()) {
@@ -195,7 +195,7 @@ void CompanionManager::handleNotifPush(const uint8_t* body, size_t len) {
 
   proto::NotifPush notif;
   if (!proto::decodeNotifPush(body, len, notif)) {
-    LOG_WRN(TAG, "Failed to decode NotifPush");
+    LOG_INF(TAG, "Failed to decode NotifPush");
     return;
   }
 
@@ -208,7 +208,7 @@ void CompanionManager::handleMsgThreadPush(const uint8_t* body, size_t len) {
 
   proto::MsgThreadPush thread;
   if (!proto::decodeMsgThreadPush(body, len, thread)) {
-    LOG_WRN(TAG, "Failed to decode MsgThreadPush");
+    LOG_INF(TAG, "Failed to decode MsgThreadPush");
     return;
   }
 
@@ -222,7 +222,7 @@ void CompanionManager::handleCalendarSync(const uint8_t* body, size_t len) {
 
   proto::CalendarSync cal;
   if (!proto::decodeCalendarSync(body, len, cal)) {
-    LOG_WRN(TAG, "Failed to decode CalendarSync");
+    LOG_INF(TAG, "Failed to decode CalendarSync");
     return;
   }
 
@@ -233,7 +233,7 @@ void CompanionManager::handleCalendarSync(const uint8_t* body, size_t len) {
 void CompanionManager::handleTimeSync(const uint8_t* body, size_t len) {
   proto::TimeSync ts;
   if (!proto::decodeTimeSync(body, len, ts)) {
-    LOG_WRN(TAG, "Failed to decode TimeSync");
+    LOG_INF(TAG, "Failed to decode TimeSync");
     return;
   }
 
