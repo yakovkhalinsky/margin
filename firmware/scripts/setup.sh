@@ -103,20 +103,19 @@ fi
 
 # Add companion Activity includes to ActivityManager.cpp
 if ! grep -q "MARGIN_BLE" "$AM_CPP" 2>/dev/null; then
-    sed -i '/#ifdef MARGIN_ENABLE_BIBLE/i\
-#ifdef MARGIN_BLE\
-#include "margin/NotificationsActivity.h"\
-#include "margin/MessagesActivity.h"\
-#include "margin/CalendarActivity.h"\
+    sed -i '0,/#ifdef MARGIN_ENABLE_BIBLE/{s/#ifdef MARGIN_ENABLE_BIBLE/#ifdef MARGIN_BLE\
+#include "margin\/NotificationsActivity.h"\
+#include "margin\/MessagesActivity.h"\
+#include "margin\/CalendarActivity.h"\
 #endif\
-' "$AM_CPP"
+\
+#ifdef MARGIN_ENABLE_BIBLE/}' "$AM_CPP"
     echo "   Added companion Activity includes to ActivityManager.cpp"
 fi
 
 # Add companion goToXxx() methods to ActivityManager.cpp
 if ! grep -q "goToCompanionNotifications" "$AM_CPP" 2>/dev/null; then
-    sed -i '/#ifdef MARGIN_ENABLE_BIBLE/i\
-#ifdef MARGIN_BLE\
+    sed -i '0,/#ifdef MARGIN_ENABLE_BIBLE/{s/#ifdef MARGIN_ENABLE_BIBLE/#ifdef MARGIN_BLE\
 void ActivityManager::goToCompanionNotifications() {\
   replaceActivity(std::make_unique<margin::NotificationsActivity>(renderer, mappedInput));\
 }\
@@ -127,26 +126,26 @@ void ActivityManager::goToCompanionCalendar() {\
   replaceActivity(std::make_unique<margin::CalendarActivity>(renderer, mappedInput));\
 }\
 #endif\
-' "$AM_CPP"
+\
+#ifdef MARGIN_ENABLE_BIBLE/}' "$AM_CPP"
     echo "   Added companion goToXxx() methods to ActivityManager.cpp"
 fi
 
 # Add companion method declarations to ActivityManager.h
 if ! grep -q "goToCompanionNotifications" "$AM_H" 2>/dev/null; then
-    sed -i '/#ifdef MARGIN_ENABLE_BIBLE/i\
-#ifdef MARGIN_BLE\
+    sed -i '0,/#ifdef MARGIN_ENABLE_BIBLE/{s/#ifdef MARGIN_ENABLE_BIBLE/#ifdef MARGIN_BLE\
   void goToCompanionNotifications();\
   void goToCompanionMessages();\
   void goToCompanionCalendar();\
 #endif\
-' "$AM_H"
+\
+#ifdef MARGIN_ENABLE_BIBLE/}' "$AM_H"
     echo "   Added companion method declarations to ActivityManager.h"
 fi
 
 # Add companion items to Home menu in HomeActivity.cpp
 if ! grep -q "MARGIN_BLE" "$HOME_CPP" 2>/dev/null; then
-    sed -i '/#ifdef MARGIN_ENABLE_BIBLE/i\
-#ifdef MARGIN_BLE\
+    sed -i '0,/#ifdef MARGIN_ENABLE_BIBLE/{s/#ifdef MARGIN_ENABLE_BIBLE/#ifdef MARGIN_BLE\
   menuItems.insert(menuItems.begin() + 2, "Calendar");\
   menuIcons.insert(menuIcons.begin() + 2, Calendar);\
   menuItems.insert(menuItems.begin() + 2, "Messages");\
@@ -154,7 +153,8 @@ if ! grep -q "MARGIN_BLE" "$HOME_CPP" 2>/dev/null; then
   menuItems.insert(menuItems.begin() + 2, "Notifications");\
   menuIcons.insert(menuIcons.begin() + 2, Bell);\
 #endif\
-' "$HOME_CPP"
+\
+#ifdef MARGIN_ENABLE_BIBLE/}' "$HOME_CPP"
     echo "   Added companion items to HomeActivity menu"
 fi
 
